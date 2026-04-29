@@ -1,0 +1,37 @@
+{
+  "app_name": "RoBEncOne",
+  "type": "malicious",
+  "fsa_calls": [
+    "showDirectoryPicker",
+    "values",
+    "getFile",
+    "createWritable",
+    "write",
+    "close"
+  ],
+  "syscalls": [
+    "open",
+    "read",
+    "fstat",
+    "mmap",
+    "read",
+    "read",
+    "read",
+    "write",
+    "write",
+    "write",
+    "fdatasync",
+    "close"
+  ],
+  "fs_activities": [
+    "OPEN",
+    "ACCESS",
+    "MODIFY",
+    "CLOSE_WRITE",
+    "CREATE",
+    "MODIFY",
+    "CLOSE_WRITE",
+    "MOVED_FROM",
+    "MOVED_TO"
+  ]
+}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7fafc;
+      color: #2d3748;
+    }
+    .header {
+      background: linear-gradient(135deg, #2f855a, #276749);
+      color: white;
+      padding: 16px;
+      text-align: center;
+    }
+    .header h1 { font-size: 18px; }
+    .header p { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .stats {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+    }
+    .stat-card {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stat-number {
+      display: block;
+      font-size: 22px;
+      font-weight: 700;
+      color: #2f855a;
+    }
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #718096;
+    }
+    .status {
+      margin: 0 12px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .status.safe { background: #c6f6d5; color: #22543d; }
+    .status.danger { background: #fed7d7; color: #742a2a; }
+    .alerts {
+      padding: 12px;
+    }
+    .alerts h2 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #4a5568;
+    }
+    .alert-item {
+      background: white;
+      border-left: 4px solid #e53e3e;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .alert-item .title {
+      font-weight: 600;
+      font-size: 12px;
+      color: #e53e3e;
+    }
+    .alert-item .detail {
+      font-size: 11px;
+      color: #718096;
+      margin-top: 2px;
+    }
+    .no-alerts {
+      text-align: center;
+      color: #a0aec0;
+      font-size: 12px;
+      padding: 16px;
+    }
+    .footer {
+      text-align: center;
+      padding: 8px;
+      font-size: 10px;
+      color: #a0aec0;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>RoB Activity Monitor</h1>
+    <p>Local Activity Monitoring (Approach 2)</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <span class="stat-number" id="totalCalls">0</span>
+      <span class="stat-label">API Calls</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-number" id="alertCount">0</span>
+      <span class="stat-label">Alerts</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-number" id="tabCount">0</span>
+      <span class="stat-label">Logged Sessions</span>
+    </div>
+  </div>
+
+  <div class="status safe" id="statusBar">
+    Monitoring active - No threats detected
+  </div>
+
+  <div class="alerts">
+    <h2>Detection Alerts</h2>
+    <div id="alertList">
+      <div class="no-alerts">No ransomware patterns detected</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>N-gram analysis | Cosine similarity | Based on USENIX Security 2023</p>
+  </div>
+
+  <script>
+    chrome.storage.local.get(
+      ["alerts", "totalApiCalls", "activityLog"],
+      (data) => {
+        const alerts = data.alerts || [];
+        const total = data.totalApiCalls || 0;
+        const log = data.activityLog || [];
+
+        document.getElementById("totalCalls").textContent = total;
+        document.getElementById("alertCount").textContent = alerts.length;
+        document.getElementById("tabCount").textContent = log.length;
+
+        if (alerts.length > 0) {
+          const bar = document.getElementById("statusBar");
+          bar.className = "status danger";
+          bar.textContent = `WARNING: ${alerts.length} ransomware pattern(s) detected!`;
+
+          const container = document.getElementById("alertList");
+          container.innerHTML = alerts
+            .slice(0, 10)
+            .map((a) => {
+              const time = new Date(a.timestamp).toLocaleString();
+              return `
+                <div class="alert-item">
+                  <div class="title">Ransomware Pattern Detected (${(a.similarity * 100).toFixed(1)}% match)</div>
+                  <div class="detail">${a.url}</div>
+                  <div class="detail">${time} | ${a.callCount} API calls in window</div>
+                </div>`;
+            })
+            .join("");
+        }
+      }
+    );
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "RoB Defender - Enhanced Permission Dialogs",
+  "version": "1.0.0",
+  "description": "Enhances FSA API permission dialogs with security warnings about ransomware risks, subdirectory access, and data loss.",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dialog.js", "content.js"],
+      "css": ["dialog.css"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RoB Enhanced Permissions"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["dialog.css", "icons/warning.svg"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

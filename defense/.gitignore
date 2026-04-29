@@ -1,0 +1,24 @@
+# Dataset samples (regeneratable)
+approach1-modification-detection/dataset/samples/
+approach1-modification-detection/evasion/evasion_samples/
+
+# ML models (regeneratable)
+approach1-modification-detection/classifier/models/*.joblib
+
+# Generated features
+approach1-modification-detection/features/features.csv
+approach1-modification-detection/evasion/evasion_features.csv
+
+# Generated analysis outputs
+approach2-activity-monitoring/analysis/ngram_features/
+approach2-activity-monitoring/analysis/similarity_matrices/
+approach2-activity-monitoring/analysis/heatmaps/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+node_modules/

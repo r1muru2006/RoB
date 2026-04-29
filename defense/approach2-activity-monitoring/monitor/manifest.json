@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "RoB Defender - Activity Monitor",
+  "version": "1.0.0",
+  "description": "Monitors FSA API call patterns in real-time to detect RoB-like ransomware activity using n-gram analysis.",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["realtime_detector.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RoB Activity Monitor"
+  }
+}

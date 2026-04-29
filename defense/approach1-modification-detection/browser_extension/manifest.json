@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "RoB Defender - Malicious Modification Detection",
+  "version": "1.0.0",
+  "description": "Detects malicious file modifications via FSA API by analyzing entropy and file size changes. Based on USENIX Security 2023 RoB paper.",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["detector.js", "content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RoB Defender"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

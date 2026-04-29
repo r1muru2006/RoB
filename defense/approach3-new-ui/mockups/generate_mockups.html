@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RoB Defense - New UI Design Mockups</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f0f0;
+      padding: 40px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      max-width: 1100px;
+      margin: 0 auto 60px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 20px;
+      grid-column: span 2;
+    }
+    .dialog-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      overflow: hidden;
+    }
+    .dialog-label {
+      text-align: center;
+      padding: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .old-label { background: #fee2e2; color: #991b1b; }
+    .new-label { background: #dcfce7; color: #166534; }
+
+    /* Chrome-like dialog styling */
+    .chrome-dialog {
+      padding: 20px 24px;
+    }
+    .dialog-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .dialog-body {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .dialog-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .btn {
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid #ddd;
+    }
+    .btn-cancel {
+      background: white;
+      color: #333;
+    }
+    .btn-primary {
+      background: #1a73e8;
+      color: white;
+      border-color: #1a73e8;
+    }
+
+    /* New UI enhancements */
+    .warning-box {
+      display: flex;
+      gap: 10px;
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .warning-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+    .warning-text {
+      font-size: 13px;
+      color: #92400e;
+      line-height: 1.5;
+    }
+    .warning-text strong {
+      color: #78350f;
+    }
+    .danger-text {
+      color: #dc2626;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .file-list {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: #4b5563;
+    }
+    .file-list-toggle {
+      color: #1a73e8;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 12px;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+    .file-list ul {
+      margin-left: 16px;
+      list-style: disc;
+    }
+    .file-list li {
+      margin-bottom: 3px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .links {
+      font-size: 12px;
+      color: #1a73e8;
+      margin-bottom: 16px;
+    }
+    .links a {
+      color: #1a73e8;
+      text-decoration: underline;
+      margin-right: 12px;
+    }
+    .highlight { font-weight: 700; }
+    .red { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <h1>New UI Design for FSA API Permission Dialogs</h1>
+  <p class="subtitle">Based on Section 6.3 of "RoB: Ransomware over Modern Web Browsers" (USENIX Security 2023)</p>
+
+  <!-- Read Permission Dialog -->
+  <h2 class="section-title">Figure 4: Read Access Permission Box (Old and New)</h2>
+  <div class="comparison">
+    <div class="dialog-container">
+      <div class="dialog-label old-label">Old UI</div>
+      <div class="chrome-dialog">
+        <div class="dialog-title">Let site view files?</div>
+        <div class="dialog-body">
+          <strong>www.example.com</strong> will be able to view files in <strong>directory_name</strong> until you close all tabs for this site.
+        </div>
+        <div class="dialog-buttons">
+          <button class="btn btn-cancel">Cancel</button>
+          <button class="btn btn-primary">View files</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-container">
+      <div class="dialog-label new-label">New UI</div>
+      <div class="chrome-dialog">
+        <div class="dialog-title">Let site view files?</div>
+        <div class="warning-box">
+          <div class="warning-icon">&#9888;</div>
+          <div class="warning-text">
+            <strong>Warning!</strong> www.example.com will be able to read all files in
+            <strong>directory_name</strong> <span class="highlight red">and its subdirectories</span>
+            until you close all tabs for this site.
+          </div>
+        </div>
+        <div class="danger-text">
+          www.example.com <span class="red">might attempt to steal your sensitive information</span>.
+        </div>
+        <div class="links">
+          <a href="#">Get more information</a> on the possible risks. Does this website look suspicious? <a href="#">Report it here</a>.
+        </div>
+        <div class="dialog-buttons">
+          <button class="btn btn-cancel">Cancel</button>
+          <button class="btn btn-primary">View files</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Write Permission Dialog -->
+  <h2 class="section-title">Figure 5: Write Access Permission Box (Old and New)</h2>
+  <div class="comparison">
+    <div class="dialog-container">
+      <div class="dialog-label old-label">Old UI</div>
+      <div class="chrome-dialog">
+        <div class="dialog-title">Save changes to <strong>directory_name</strong>?</div>
+        <div class="dialog-body">
+          <strong>www.example.com</strong> will be able to edit <strong>directory_name</strong> until you close all tabs for this site.
+        </div>
+        <div class="dialog-buttons">
+          <button class="btn btn-cancel">Cancel</button>
+          <button class="btn btn-primary">Save changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-container">
+      <div class="dialog-label new-label">New UI</div>
+      <div class="chrome-dialog">
+        <div class="dialog-title">Save changes to <strong>directory_name</strong>?</div>
+        <div class="warning-box">
+          <div class="warning-icon">&#9888;</div>
+          <div class="warning-text">
+            <strong>Warning!</strong> www.example.com will be able to edit
+            <strong>directory_name</strong> <span class="highlight red">and its subdirectories</span>
+            until you close all tabs for this site.
+          </div>
+        </div>
+        <div class="danger-text">
+          The changes made by www.example.com can cause
+          <span class="red">permanent loss of your local data</span>.
+          <span class="file-list-toggle" onclick="document.getElementById('fileListDemo').style.display = document.getElementById('fileListDemo').style.display === 'none' ? 'block' : 'none'">
+            See the impacted files...
+          </span>
+        </div>
+        <div class="file-list" id="fileListDemo">
+          <ul>
+            <li>Edited /Users/Alice/Cloud/directory_name/file1.txt</li>
+            <li>Edited /Users/Alice/Cloud/directory_name/file2.txt</li>
+            <li>Edited /Users/Alice/Cloud/directory_name/sub_directory/test3.txt</li>
+          </ul>
+        </div>
+        <div class="links">
+          <a href="#">Get more information</a> on the possible risks. Does this website look suspicious? <a href="#">Report it here</a>.
+        </div>
+        <div class="dialog-buttons">
+          <button class="btn btn-cancel">Cancel</button>
+          <button class="btn btn-primary">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h2>Design Decisions (from Section 6.3)</h2>
+    <ul style="line-height: 2; font-size: 14px; margin-left: 20px;">
+      <li>The interface must <strong>explicitly show the risks</strong> (sensitive information disclosure, permanent data loss)</li>
+      <li>Dialog boxes must be designed with <strong>warning colors and icons</strong> to capture attention</li>
+      <li>Permission dialog boxes must <strong>not be identical</strong> so users know the difference</li>
+      <li>The new UI must show <strong>all accessed/changed files</strong> for meaningful user decisions</li>
+      <li>A <strong>link to report suspicious websites</strong> helps build a community blocklist</li>
+    </ul>
+  </div>
+</body>
+</html>
