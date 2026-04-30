@@ -1,0 +1,1139 @@
+    RøB: Ransomware over Modern Web Browsers
+
+    Harun Oz, Ahmet Aris, and Abbas Acar, Cyber-Physical Systems Security Lab,
+Florida International University; Güliz Seray Tuncay, Google; Leonardo Babun and
+Selcuk Uluagac, Cyber-Physical Systems Security Lab, Florida International University
+
+                  https://www.usenix.org/conference/usenixsecurity23/presentation/oz
+
+           This paper is included in the Proceedings of the
+                    32nd USENIX Security Symposium.
+
+                              August 9­11, 2023 · Anaheim, CA, USA
+
+                                                       978-1-939133-37-3
+
+                                                        Open access to the Proceedings of the
+                                                           32nd USENIX Security Symposium
+                                                                  is sponsored by USENIX.
+                    RøB: Ransomware over Modern Web Browsers
+
+Harun Oz1, Ahmet Aris1, Abbas Acar1, Güliz Seray Tuncay2, Leonardo Babun1, and Selcuk Uluagac1
+    1Cyber-Physical Systems Security Lab, Florida International University, Miami, Florida, USA
+                                        2Google, Mountain View, CA, USA
+            {hoz001, aaris, aacar001, lbabu002, suluagac}@fiu.edu, gulizseray@google.com
+
+                        Abstract                                        oped by the Web Platform Incubator Community Group [59].
+                                                                        It enables web applications to interact with the users' local
+File System Access (FSA) API enables web applications to                file systems [60]. Although not a web standard at the mo-
+interact with files on the users' local devices. Even though it         ment, the FSA API is embedded in and is fully supported
+can be used to develop rich web applications, it greatly ex-            by the most popular browsers like Chrome and Edge and is
+tends the attack surface, which can be abused by adversaries            partially supported by Opera and Safari [4], which, combined,
+to cause significant harm. In this paper, for the first time in the     share the 91.29% of the desktop browser market as of May
+literature, we extensively study this new attack vector that can        2023 [7]. The FSA API has been steadily gaining popularity
+be used to develop a powerful new ransomware strain over                and is already being used by some popular web applications
+a browser. Using the FSA API and WebAssembly technol-                   such as the online development platform Microsoft Visual
+ogy, we demonstrate this novel browser-based ransomware                 Studio Code (i.e., vscode.dev [11]) and social media platform
+called RØB as a malicious web application that encrypts the             Snapchat [9].
+user's files from the browser. We use RØB to perform impact
+analysis with different OSs, local directories, and antivirus so-          Even though the FSA API can be used to develop pow-
+lutions as well as to develop mitigation techniques against it.         erful web applications, it can also be abused by adversaries
+Our evaluations show that RØB can encrypt the victim's local            to develop a novel ransomware strain as a web application
+files including cloud-integrated directories, external storage          that encrypts the user's files from the browser. Such an attack
+devices, and network-shared folders regardless of the access            would effortlessly be performed by an adversary who designs
+limitations imposed by the API. Moreover, we evaluate and               a seemingly benign web application and uses malicious tactics
+show how the existing defense solutions fall short against              (i.e., phishing, malvertisement) to trick the user to grant access
+RØB in terms of their feasibility. We propose three potential           to their sensitive portions of the local file system. Despite the
+defense solutions to mitigate this new attack vector. These             briefly mentioned risks of ransomware in the FSA API doc-
+solutions operate at different levels (i.e., browser-level, file-       umentation [61], the deployed countermeasure in its current
+system-level, and user-level) and are orthogonal to each other.         form (i.e., hard-coded blocking system-sensitive directories)
+Our work strives to raise awareness of the dangers of RØB-              is not effective to protect sensitive user files on non-system
+like browser-based ransomware strains and shows that the                directories, subdirectories of the systems-sensitive directories,
+emerging API documentation (i.e., the popular FSA) can be               or any other directories such as cloud-integrated directories,
+equivocal in terms of reflecting the extent of the threat.              external directories or network-shared folders. More impor-
+                                                                        tantly, no prior works investigated the detailed impact analysis
+1 Introduction                                                          of this new threat vector.
+
+The developers of web browsers spend significant effort on                 In this work, we implemented a novel browser-based ran-
+enhancing browsers by continuously adding new technologies.             somware, namely RØB - Ransomware over Browser, that
+Web application developers take advantage of these technolo-            performs its malicious actions via the emerging web tech-
+gies by offering new functionalities that previously could be           nologies, the FSA API and WebAssembly (Wasm). Although
+performed only by native applications. One such technology              the security model of the FSA API suggests restricting ac-
+is the File System Access (FSA) API1, which has been devel-             cess to some of the system directories (e.g., file system root,
+                                                                        user's home, operating system), our experiments reveal that
+    1Please see for a live demo of the FSA API: https://googlechromela  RØB can still encrypt files in user directories, data partitions,
+bs.github.io/text-editor/.                                              external storage devices (e.g., flash drives), shared network
+                                                                        volumes, and cloud-integrated directories, making the sug-
+
+USENIX Association                                                      32nd USENIX Security Symposium 7073
+gested defense mechanism by the FSA API developers futile.            · We proposed three potential defense solutions to miti-
+   Antivirus (AV) software often detects ransomware by mon-              gate the risks posed by browser-based ransomware: 1)
+                                                                         Malicious Modification Identification, 2) Local Activity
+itoring sensitive folders and identifying suspicious behaviors           Monitoring, and 3) New UI Design. We implemented
+on the victim's computer. We performed an extensive analy-               and evaluated the effectiveness of the first two solutions
+sis with commercial antivirus (AV) solutions such as AVG,                as well as provided new modified UIs to address the
+Kaspersky, Avast, Malware Bytes, and TrendMicro. We found                issues in the old UIs. To support open source and fur-
+RØB can evade all these AVs. In addition to AVs, many highly             ther research, we released the source code of the defense
+accurate ransomware defense studies exist in the literature              solutions 2.
+such as detection systems that employ static analysis or dy-
+namic analysis features [52]. We examine their effectiveness       Responsible Disclosure. The ransomware risk through the
+against RØB-like ransomware; however, they, unfortunately,         FSA API had been very briefly mentioned in the documenta-
+fail to detect RØB due to the distinct features such as not        tion [61]. However, we argue that the documentation, in its
+requiring any installation, running within the browser, and        current form, significantly downplays the extent of the ran-
+using Wasm-based encryption libraries. Hence, there is a need      somware threat and gives misleading explanations regarding
+for a new solution that can effectively tackle browser-based       the efficacy of the countermeasures provided by the API. To
+ransomware attacks.                                                share our findings, improve the security documentation, and
+                                                                   contribute to the production of a working countermeasure
+   We propose three potential defense solutions at different       against this threat, we contacted the FSA developers, which
+levels (i.e., browser-level, file-system-level, and user-level).   is Google, through several channels. We submitted a security
+Our first solution, namely malicious modification identifica-      bug to Chromium outlining the above points in detail. We
+tion, monitors the FSA API to detect malicious modifications       also had a video meeting and email exchanges with the devel-
+of RØB-like attacks before they overwrite the victim's local       opers of the FSA API who gave us positive feedback strongly
+files. Our second approach, namely local activity monitoring,      supporting our work and expressed interest in collaboration
+monitors the browser's local activity (e.g., read and write func-  to implement the practical defenses we outlined in our pa-
+tion/API calls, file system activities) to detect the potential    per. They have also agreed to make changes in the security
+patterns of ransomware. Our third solution aims to increase        documentation to better explain the extent of the ransomware
+the (in)security awareness of users via a new UI design for        threat based on the findings of our work. In addition, we also
+the FSA's permission dialog boxes. Unlike the existing dialog      responsibly disclosed the issue to cloud providers (e.g., Ap-
+boxes of FSA API, the new dialog boxes we present inform           ple, Box) whose products we identified as being at risk and
+users about the risks and implications of allowing web appli-      AV vendors. Apple reviewed the bug report and did not take
+cations that utilize FSA API to interact with local files. These   responsibility as their product was indirectly impacted by this
+three proposed approaches are crucial to providing solutions       issue. We have yet to receive any responses from the other par-
+to mitigate this new attack vector at different levels; however,   ties at the time of this writing. Further details of the disclosure
+neither of them is a panacea on its own due to the distinct        process are given in Section A in Appendix.
+features of this new attack vector. More research effort is        Ethics. Due to ethical considerations, we did not make the
+needed to enable web applications to interact with local files     RØB (i.e., ransomware) implementation publicly available.
+in a secure manner.                                                And, we performed all the analysis on local servers; so no
+Contributions: The contributions of this work are as follows:      human subjects have been involved in this research.
+                                                                   Organization. Section 2 gives the background information.
+   · For the first time, we thoroughly analyzed a novel attack     Section 3 presents the threat model. Section 4 introduces
+     vector for ransomware that has not been explored before.      the system model and impact analysis of RØB. Section 5
+      Particularly, we show how the FSA API can be exploited       investigates the effectiveness of existing ransomware defense
+      to launch ransomware attacks over modern browsers.           solutions against RØB. Section 6 articulates three defense
+                                                                   approaches we proposed. Section 7 gives the related work
+   · We conducted a comprehensive impact analysis on three         and Section 8 concludes the paper.
+      different OSs, 29 distinct directories together with their
+      subdirectories, five cloud providers, and five antivirus     2 Background
+      solutions. Our results demonstrate the limitations of tra-
+      ditional antivirus solutions and the ineffectiveness of the  2.1 The File System Access API
+      access limitation currently deployed in the FSA API.
+                                                                   Overview. The Web Platform Incubator Community
+   · We evaluated the effectiveness of state-of-the-art existing   Group [59] created the File System Access (FSA) API to
+      ransomware detection solutions and found that they, un-
+      fortunately, fall short in detecting RØB-like ransomware         2https://github.com/cslfiu/RoB_Ransomware_over_Modern_Web_Browsers
+      due to its distinct features (e.g., no payload, no crypto
+      library access).
+
+7074 32nd USENIX Security Symposium                                USENIX Association
+enable the development of powerful web applications that           as Mozilla and Brave [19, 48] did not integrate this API into
+interact with files that are located in users' local file sys-     their browsers due to some concerns. Particularly, Mozilla
+tems [60]. For instance, developers can build online document      tagged this API as harmful [48] because they do not think
+editors, business tools, and integrated development environ-       "...meaningful end-user consent is possible to obtain..." [48]
+ments (IDE) that can directly interact with a user's local file    and Brave considers this API as "non-standard privacy-
+system from the browser without any installation. Although         risking" [19]. Additionally, Safari's WebKit recently partially
+not a web standard now, the FSA API is embedded in and             implemented the FSA API in its engine [4]. However, they
+fully supported by the most popular browsers like Chrome           restricted the capabilities of FSA API by allowing only ac-
+and Edge and is partially supported by Opera and Safari as of      cess to the Origin Private File System, which is mapped to a
+now [8]. Moreover, it is available for all browser engine teams    database outside of the user's OS. Our findings in this paper
+such as Gecko of Mozilla to implement this new feature.            align with the concerns of other major browsers.
+
+Internals. The FSA API has a single-entry point, named             3 Threat Model
+chooseFileSystemEntries(). This entry point opens a
+picker dialog allowing a user to select multiple files or          In our threat model, we consider a scenario where an attacker
+directories. After the selection, the browser asks for the         creates a malicious web application or hijacks an existing one,
+user's permission to read the contents of the files or             gaining access to the user's local file system via the FSA API.
+directories via opening a read permission dialog. De-              The attacker then uses phishing and malvertisement to lure
+pending on whether the user selects a file or a direc-             victims to the web application and trick them into granting
+tory, the API returns either a FileSystemFileHandle                read and write access via seemingly benign web applications.
+or FileSystemDirectoryHandle. These handles provide                Then, the adversary can use any encryption algorithm on the
+methods to interact with the files or directories. When a          victims' files and overwrite the local files. For the encryp-
+web application calls the createWritable() method on               tion, the adversary can use an encryption library of Wasm
+a FileSystemFileHandle to modify a file, the browser               or JavaScript or can implement the encryption algorithms by
+prompts the write permission dialog for the user. Subsequent       themselves. Lastly, the adversary can use various extortion
+calls to createWritable() for the same file within the same        methods (e.g., Bitcoin) that have been used by the classical
+session do not prompt the user for permissions again. Simi-        ransomware families to obtain payment. It is worth noting
+larly, if the user grants both read and write permissions for a    that in this threat model, the FSA API works as intended, but
+directory, the returned FileSystemDirectoryHandle gives            only is abused by the attacker to get access to the user's local
+access to all files and subdirectories within it. Analogous to     files and overwrite them.
+the file handle, any modifications on the files in the same        Attack Practicality. As described above, the user needs to
+directory within the same session do not require repeated          navigate to the malicious site and grant read/write access for
+permission prompts.                                                browser-based ransomware to be effective. This threat model
+                                                                   can be considered practical for several reasons. First, social-
+Security Model. The security model of the FSA API con-             engineering techniques like phishing is still one of the top
+siders a few attacks including the possibility of attacks that     cybercrime used by the attacks in the wild [28] affecting major
+encrypt files (i.e., ransomware), malware storing, and execu-      enterprises and end-users [57]. Second, the threat model of a
+tion [24]. There are two main strategies adopted by the API        user accessing a malicious URL [23] and a tricked user grant-
+to tackle these attacks. First, it utilizes a permission model     ing permission [12] have been used by other state-of-the-art
+which requires web applications to obtain access from users        studies in the literature. With the advancements in browsers
+via permission dialogues. This permission model is simple;         and the trend of moving applications to the web, attackers
+there is one permission dialog for read access and another         may come up with more compelling strategies to success-
+one for write access. However, the effectiveness of this model     fully lure users into using their ransomware. Additionally, the
+is limited as adversaries can hide their real intents and use      average layman user can find the browser more trustworthy
+social engineering to get a user's explicit permission [6, 28].    and grant read/write requests on file systems more inconsider-
+Second, the FSA API utilizes an access limitation strategy         ately than downloading, installing, and executing unknown
+by blocking web applications' access to the critical parts of      software [58]. More importantly, the current UI lacks any
+the file system such as the root directory as well as the user's   indicator to warn users of potential ransomware attacks, in-
+home, operating system (OS), and browser profile directories.      creasing the likelihood of users falling for this type of attack.
+However, this strategy also falls short in preventing the at-      Last but not least, while traditional ransomware must bypass
+tack we present in this work as the sub-directories of these       many built-in checkpoints (e.g., email attachment scanners,
+restricted directories and any directory that are not explicitly   download scanners, local antivirus programs) throughout the
+blocked by this approach (e.g., cloud directory) can still be en-  attack, RØB-like ransomware can reach the victim directly
+crypted. We analyze the effectiveness of this approach further     without bypassing these steps, which would also increase the
+in Section 4.3.
+
+Other Browsers' Positions and Concerns. Browsers such
+
+USENIX Association                                                 32nd USENIX Security Symposium 7075
+Server-side  Web UI                           Extortion           RØB can employ Bitcoin as the payment method. In our im-
+ Backend                                                          plementation, this module redirects the victim to another web
+                                                                  page that displays the victim ID assigned by the Backend
+             File System Access               Encryption          module for the victim as well as the ransomware note and the
+                                                                  associated payment details.
+                                 Client-side
+                                                                   Algorithm 1: Algorithm of RØB.
+        Figure 1: System model of RØB ransomware.
+practicality of the threat model used in this paper.              1 dirHandle = window.showDirectoryPicker();
+                                                                  2 for entry  dirHandle.values() do
+4 RØB - Ransomware over Browser                                   3 file = entry.getFile();
+                                                                  4 encryptedContent = encrypt(file);
+In this section, we give the details regarding the design, im-    5 writable = file.createWritable();
+plementation, and impact evaluation of our proof-of-concept       6 writable.write(encryptedContent);
+ransomware implementation RØB.                                    7 writable.close();
+                                                                  8 end
+4.1 System Model
+                                                                  4.2 Implementation of RØB
+Overview. Figure 1 shows the system model of the RØB that
+includes five modules: Backend, Web User Interface (UI), File     File System Access Module Implementation. This module
+System Access, Encryption and, Extortion.                         uses the FSA API to access and modify the victim's files as
+Backend Module. This module receives HTTP requests from           outlined in Algorithm 1. In Line 1, showDirectoryPicker()
+clients (victims), it creates a public-private key pair and a     function is invoked which opens a directory select di-
+unique ID for each victim. Keys and victim IDs are stored         alogue for the user. When the user selects a direc-
+in its database. Afterward, it sends an HTTP response to the      tory and grants the read permission, the API returns a
+victim, which includes the other components of RØB, client        FileSystemDirectoryHandle that contains the methods
+ID, and the generated encryption keys for the client. The keys    needed to interact with the files of the user. The state-
+stored by the Backend module for each client are shared with      ments in Lines 2-8 iterate through files in the directory se-
+the ones who make payments for the recovery of their files.       lected by the user. getFile() method called in Line 3 re-
+Web User Interface Module. This module includes the con-          turns a FileSystemEntry object of a file and forwards it to
+tents regarding the look of the website that aims to trick vic-   encrypt(), which returns the encrypted file contents. After,
+tims to enable RØB to access their local file system. The         createWritable() in Line 5 obtains a writable stream to a
+attacker can design the Web UI component differently de-          file and asks for the user's permission to modify the file. Once
+pending on the malicious scenario. For example, this module       the user has granted write permission, the write() method
+can be designed by the adversary as a media (e.g., picture,       overwrites the file. Subsequent calls to createWritable()
+video) editor.                                                    on the same file handle within the same session do not require
+File System Access Module. This module contains the nec-          additional user permission. Therefore, RØB can continue per-
+essary logic to interact with the victim's files from the web     forming its malicious actions without prompting the users as
+application using the FSA API. RØB works in a read-encrypt-       long as the session continues.
+overwrite loop for every file in the selected directory of the    Encryption Module Implementation. This module first
+user.                                                             generates a symmetric key and encrypts the victim's files
+Encryption Module. This module includes the func-                 with the AES-256 algorithm. It uses AES-GCM mode as
+tions/modules to encrypt the victim's files. RØB performs         it provides balanced performance and confidentiality. After
+hybrid encryption on the victim files to make recovery at-        the encryption of all of the files, it encrypts the AES key
+tempts impossible for users. In our implementation, this mod-     with RSA-2048 using the public key that is generated by the
+ule first generates a symmetric key and encrypts the victim's     Backend module when the victim initially made a request
+files with AES-256. After the encryption of all of the files, it  to the malicious web application. To prevent key exposure,
+encrypts the AES key with RSA-2048 using the public key           the module overwrites the portion of the memory where the
+that is generated by the Backend module.                          key is stored with random values by leveraging an additional
+Extortion Module. This module redirects the user to the ran-      function named clear_memory. We implemented the Encryp-
+som note link that informs the victim about the ransomware        tion module using the Enigma library which utilizes a Wasm-
+attack and gives details regarding the ransom payment method.     compiled version of OpenSSL to increase the performance [2].
+                                                                  We performed an investigation on the encryption speed of
+                                                                  RØB with varying file sizes. Our results show that the encryp-
+                                                                  tion speed of RØB is 0.62 MB/s for a 1MB file, 3.85 MB/s for
+
+7076 32nd USENIX Security Symposium                               USENIX Association
+a 10MB file, and 33.2 MB/s for a 100MB file with Chrome 89          Table 1: List of local directories in different operating sys-
+installed on a computer with 2,7 GHz Dual-Core Intel Core i5        tems that RØB affects. FDA: Full Directory Access. SDA:
+processor and 8 GB of RAM. Although the loading process of          Subdirectory Access. indicates that RØB has FDA/SDA
+the Wasm binaries to the browser presents a small overhead,         and encrypts files in that directory. indicates that access
+the results show that the encryption speed of RØB scales with       is denied by the API and RØB cannot encrypt files in that
+the size of the data.                                               directory.
+
+4.3 Attack Surface Investigation                                    Directory       Windows  Linux    macOS
+                                                                    Documents       FDA SDA  FDA SDA  FDA SDA
+In this subsection, we perform experiments to study the im-         Desktop
+pact of RØB on victim files and directories.                        Pictures
+                                                                    Videos
+Evaluation Setup. We performed our first analysis on a com-         Music
+puter (Test-PC:1) running Windows 10 Pro with a 2,6 GHz             Downloads
+Intel Core i7 processor and 16 GB of available RAM. We also         Data Partition
+employed computers powered by Linux (Test-PC:2 - Ubuntu
+20.04 LTS with a 2,6 GHz Intel Core i7 processor and 16GB           of the Windows directories of Pictures, Videos, and Music.
+of RAM), and macOS (Test-PC:3 - macOS Big Sur 11.0.1                In addition, we found out that although the security model of
+with a 2,7 GHz Dual-Core Intel Core i5 processor and 8 GB of        the FSA API does not allow a user to choose the Documents,
+RAM) for our evaluations. This enabled us to understand the         Desktop, Downloads, and the data partition directories (e.g.,
+type of directories affected in multiple platforms used by a di-    D:/), there is no access limitation dictated by the API on their
+verse set of users. Moreover, the analysis with network-shared      subdirectories.
+folders required two Windows computers to share a folder
+over the network. Therefore, in addition to the Test-PC:1,             To summarize, our evaluation showed that RØB can ar-
+we employed a second Windows-based computer (Test-PC:4)             bitrarily encrypt the full contents of Pictures, Videos, and
+with the same specs of Test-PC:1.                                   Music, and the subdirectories of Documents, Desktop, Down-
+                                                                    loads, and data partition directories on a Windows computer.
+Types of Directories Affected. In this analysis, we investi-        Considering the other test computers (i.e., Test-PC:2 and Test-
+gate and identify the affected directories in various operating     PC:3 running Linux and macOS respectively), our evaluation
+systems (e.g., Windows, Linux, and macOS) that RØB can              showed that the FSA API has very similar access limitations
+encrypt. We analyze the access limitation of the FSA API on a       for web applications (hence for RØB) on computers powered
+set of directories such as local directories, cloud-integrated di-  by these operating systems. Table 1 provides a summary of
+rectories, external storage devices, and network shared folders     our findings. Once RØB can have full directory access or sub-
+and determine if RØB can access and encrypt full directory          directory access, it encrypts all of the files inside. Although
+contents or only contents of subdirectories.                        we see similar full and subdirectory access patterns of RØB
+· Local Directories. To determine the directories that are af-      for most of the local directories of Windows, Linux, and ma-
+fected by RØB, we created test folders that include 50 files        cOS, we see an interesting pattern for data partitions. While
+with different file types (docx, xlsx, pdf, txt, jpeg)              the FSA API prevents RØB from fully accessing the data
+on test computers Test-PC:1, Test-PC:2, and Test-PC:3. Sub-         partition and allows only subdirectories to be accessed for
+sequently, we placed the test directories in different parts of     Windows, it allows full access to data partition and subdirec-
+the file systems (in total 21 different directories on 3 OSs) of    tories in both Linux and macOS platforms.
+the test computers. On each test computer, we ran RØB as
+a web application using a Node.js server, browsed the RØB           · Cloud-Integrated Directories. To analyze the effects of RØB
+web application, and tried to select the directory under test       on the files that are stored in cloud-integrated directories, we
+that has our folder with the files.                                 first created dummy accounts on popular cloud platforms such
+                                                                    as Google Drive, DropBox, Box, iCloud, and Microsoft One
+   As explained earlier, the security model of the FSA API          Drive. These platforms have desktop applications that allow
+prevents the web application from accessing specific directo-       users to work on the files locally and sync them to the cloud
+ries. We tested those directories (i.e., the root directory of the  using file system integration. We downloaded their desktop
+file system, user's home, OS, and browser profile directories)      applications to Test-PC:1 to enable that feature and create
+on Test-PC:1 and verified that the FSA API does not allow a         their integrated directories. Subsequently, we placed 50 files
+user to select those directories. This implies that the security    with different file types in each cloud-integrated directories
+model of the FSA API prevents RØB from accessing these              on Test-PC:1 and chose these directories as the target while
+directories. Nevertheless, we continued our tests by placing        running RØB.
+our test directories in other parts of the local file system to
+choose such directories via RØB. We realized that RØB can              Our experiments show that when RØB accessed these di-
+access and encrypt the full contents (including subdirectories)     rectories, it successfully encrypted the files in those cloud-
+                                                                    integrated directories. After that, the sync engine of the cloud
+
+USENIX Association                                                                  32nd USENIX Security Symposium 7077
+provider reflected the modifications to the cloud storage and         Table 2: Cloud providers, their versioning schemes, and the
+the changes made to the files in the cloud became persistent.         impact of RØB where signifies that files are not recoverable
+We summarized our findings in Table 2.                                after the encryption of RØB and signifies that files are
+                                                                      recoverable after the encryption of RØB due to versioning
+   We note that even though these platforms have their built-in       feature of the cloud provider. However, if RØB is launched
+ransomware detection mechanisms, none of the cloud plat-              before a backup is done, then critical changes on user files can
+forms were able to detect RØB during or after the attack. On          still be lost for cloud providers with versioning (i.e., Google
+the other hand, as a ransomware protection method, some               Drive, Dropbox, and Microsoft OneDrive).
+cloud platforms use versioning techniques [10]. If the files
+that are stored in the cloud are attacked by ransomware, the          Cloud Provider      Versioning           Affected
+cloud user can retrieve the earlier (unencrypted, original) ver-                          Scheme               by
+sion of the files. However, this feature is not standard among        Google Drive                             RØB?
+all of the cloud providers and every cloud vendor has its             Microsoft OneDrive  30 days or 100 ver-
+own versioning scheme. While cloud providers such as Drop-            Dropbox             sions
+box keep track of versions of files for basic, plus, and family       Apple iCloud        25 versions
+users for 30 days and professional and business users for 180         Box Individual      30 days (personal),
+days [3], OneDrive of Microsoft keeps 25 versions of the                                  180 days (business)
+stored files [50]. Differently, Google Drive can keep versions                            No versioning
+of files for 30 days or the first 100 versions of them [10].                              No versioning
+Box has different solutions with various versioning features.
+Specifically, while Box Individual keeps only one version of a        to RØB-like ransomware attacks.
+file, Personal Pro and Business Starter solutions keep 10 and         · Network Shared Folders. To test the effect of RØB on net-
+25 file versions, respectively. On the other hand, iCloud does        work shared folders, we created a test directory that included
+not utilize the versioning feature. We further investigated the       50 files with different file types in our test computer Test-PC:1
+versioning scheme of the cloud providers and realized that            and we shared it over the network with Test-PC:4. After that,
+Dropbox, Google Drive, and Microsoft OneDrive can store               we run RØB on Test-PC:4 and selected the test directory that
+more than 100 versions of the files and RØB cannot have a             is shared over the network as a target.
+permanent effect on the files stored by them. In addition, Box
+Individual and Apple iCloud do not have a versioning scheme              We observed that RØB is able to encrypt the files that
+and we verified that the files encrypted by RØB cannot be             reside in the shared folder which shows that running RØB
+recovered by such solutions.                                          in one computer can affect the folders/files that are shared
+                                                                      by multiple computers over the network. Shared folders are
+   We conclude that if victims are using iCloud or Box Individ-       frequently used by both individuals and enterprises and if
+ual, RØB can cause them to lose their significant files unless        sensitive/important files are stored in the shared folder, the
+a ransom is paid. RØB-like ransomware attacks can create              effects of RØB on these folders can be very serious.
+significant damage to iCloud users. In addition, although the
+versioning strategy employed by Dropbox, Google Drive, and            4.4 Desktop vs. Browser-based Ransomware
+One Drive seems to be resilient against RØB, it should not
+be considered as a silver bullet. This is due to the fact that        In this section, we discuss the fundamental differences be-
+the backup files in the version history do not always reflect         tween browser-based ransomware and desktop ransomware.
+the most recent state of a file. If RØB is launched before a
+backup is done, then critical changes on user files can still be      Initial User Access. Desktop ransomware typically spreads
+lost.                                                                 via phishing, advertisements, or emails, which are used to
+· External Storage Devices. To test the impact of RØB on              trigger downloading the malicious payload. In comparison,
+external disks, we placed a test directory that included 50           browser-based ransomware, such as RØB, is a malicious web
+files with different file types in a test external disk (e.g., West-  application that needs to attract its victims to its domain in
+ern Digital 4TB) and a test flash drive (e.g., Toshiba 16GB)          some way. Similar methods such as phishing, malvertise-
+connected to Test-PC:1. After, we ran RØB and chose the               ments, or emails (as a link but not as an attachment) can
+directory in each external storage device as the target.              be used by RoB to distribute the link and to gain initial user
+                                                                      access. To attract more users, it can also be designed as a
+   Our experiments showed that RØB is able to encrypt all             benign-looking web application (e.g., a free media editor).
+of the files located in the selected directories in each exter-       Infection and Execution. For desktop ransomware to be ef-
+nal storage device. As external storage devices are used by           fective, the user (victim) must download (i.e., infect) and
+ordinary users and enterprise users to backup important data,         execute the binary on its system. Unlike desktop ransomware,
+RØB can have detrimental effects on the files stored in such          RØB is fileless, i.e., no download or execution is required.
+devices. Unfortunately, such devices are outside the scope of         However, after luring victims to its domain, browser-based
+the security model of the FSA API which leaves them prone             ransomware still needs to trick its victims into granting read
+                                                                      and write access. In this manner, browser-based ransomware
+
+7078 32nd USENIX Security Symposium                                                       USENIX Association
+has the advantage of executing its actions via browsers, which   tion. AVG Internet Security monitors sensitive folders such as
+are used by millions of users and perceived as trustworthy       Documents, Pictures, etc., and allows a user to add a folder to
+while desktop ransomware requires users to download and          the sensitive folders list for monitoring. We added the path of
+execute unknown binaries.                                        the test directory to the sensitive folders list. Following that,
+Encryption. RØB uses Wasm to encrypt the victim files. As        we ran RØB and chose the test directory as the target. AVG
+it employs all of the encryption logic in the Wasm, unlike       Internet Security was not able to detect RØB.
+desktop ransomware, it does not utilize the platform's encryp-   · Kaspersky. We installed the full version of Kaspersky
+tion libraries or OS system calls. Hence, it can hide its file   Total Security [5]. Kaspersky Total Security has an anti-
+encryption process from the defense solutions that monitor       ransomware tool that monitors the personal computer for
+the system calls made to the platform's encryption APIs.         ransomware-like behavior in real time. Nevertheless, we ran
+Extortion. Desktop ransomware delivers ransom payment in-        RØB and could successfully encrypt the files within the test
+formation to the victim via leaving a ransom note on the desk-   folder. Kaspersky Total Security was not able to detect RØB
+top, changing the desktop background, or using lock screens.     in any of the test cases.
+However, RØB cannot employ those techniques and has to           · Trend Micro. We installed the full version of Trend Micro
+find other ways. Particularly, RØB can: A) redirect the victim   Antivirus+ Security [56], which promises to utilize prevent
+to the extortion page upon finishing encryption, B) add ran-     various threats such as ransomware and online attacks via
+som note files to the parent folders of the encrypted files, C)  its Advanced AI Learning utility. We performed three tests
+change the names of encrypted files and add ransom note to       with 10, 50, and 100 files in the test folder. We confirmed that
+file names by adhering to maximum path length constraints of     Trend Micro Antivirus+ Security was not able to detect RØB
+platforms. If Option A is employed, then the ransom note may     in any of our test experiments.
+never reach the victim if the victim closes the page before      · Avast. We installed the full version of Avast One Essen-
+the encryption is completed. Options B and C are better ones,    tial [15], which promises to provide ransomware protection
+ensuring that the ransom note will be reachable to the victim    via monitoring important folders. We added the path of the
+even if the page is closed. However, those options may give      folder among the important files/folders to be monitored. We
+clues to defense solutions in detecting RØB as discussed in      verified that Avast One Essential was not able to detect RØB
+Section 6.                                                       in any of our test cases.
+
+5 Effectiveness of Current Defenses                              5.2 State-of-the-art Ransomware Defense
+
+In this section, we investigate the effectiveness of existing    The ransomware defense approaches for PCs can be grouped
+ransomware defense solutions against RØB.                        into three categories: 1) Static analysis-based detection meth-
+                                                                 ods, 2) Dynamic analysis-based detection methods, and 3)
+5.1 Antivirus Solutions                                          Key extraction-based recovery solutions.
+                                                                 Static Analysis-based Solutions. Many researchers pro-
+In this section, we tested the effectiveness of the full ver-    posed static analysis-based solutions [45, 64] that utilize
+sions of five different antivirus solutions, namely Malware      structural features such as strings and opcodes to detect ran-
+Bytes, AVG Antivirus, Kaspersky, Trend Micro, and Avast          somware. Although those solutions can detect well-known
+against RØB. We chose these antivirus solutions because they     ransomware strains, they are vulnerable to common evasion at-
+explicitly promise ransomware defense via malicious behav-       tempts such as obfuscation [17,53]. In the concept of browser-
+ior monitoring for users. To perform our experiments, we         based ransomware attacks, the adversaries are free to use any
+downloaded and installed each antivirus solution to our test     tool available and employ obfuscation techniques to evade all
+computer Test-PC:1, put test directories with 10, 50, and 100    types of static analysis-based tools. Therefore, such solutions
+files with various file types, and checked if they can detect    are not suitable for browser-based ransomware attacks.
+RØB when it is instructed to run on the test folder.             Dynamic Analysis-based Solutions. The dynamic analysis-
+· Malware Bytes. Malware Bytes Premium [43] promises             based solutions use behavioral features such as network ac-
+to protect users' documents and financial files against ran-     tivity, API/system calls, I/O access patterns, and file system
+somware. We installed Malware Bytes Premium and selected         activity to detect ransomware [52]. First, RØB does not need
+the test directory when running RØB. We verified that Mal-       frequent C&C server communication. In fact, only one HTTP
+ware Bytes Premium could not detect RØB. Moreover, we            request made to the Backend module of RØB is sufficient for
+also tried the browser extension of Malware Bytes, namely        it to be sent in an HTTP response packet and perform its ma-
+Browser Guard [42] which blocks malicious web pages and          licious actions. In addition, RØB's communication is based
+web applications that include ransomware. We performed an-       on HTTP over TCP which is used by almost every benign
+other test while Malware Bytes's Browser Guard extension is      website and web application. Therefore, the solutions that use
+activated and it could not detect RØB.                           network traffic features [21, 22, 47] would struggle to detect
+· AVG Antivirus. We installed the full version of the AVG        RØB. Second, unlike conventional ransomware, RØB can per-
+Internet Security [16], which promises ransomware protec-
+
+USENIX Association                                               32nd USENIX Security Symposium 7079
+form malicious actions without being installed on the system.              2 Creates a swap file and writes the changes.
+Therefore, it can evade the registry-based solutions [35, 37].
+Due to the high computation cost of the malware analysis                   1 Reads the original file.
+environments [51], the ransomware analysis environments
+such as [25, 38] (albeit was very useful) has become impracti-     WebApp                              file.txt  file.txt.crswap
+cal against RØB-like attacks as it is not practical to analyze
+every website before the visit of a user in such analysis envi-            3 Swaps the original file with the swap file.
+ronments. Additionally, ransomware defense solutions such
+as [25,39,54] utilize the features retrieved from the file system         Figure 2: Behavior of RØB using the FSA API.
+activities such as folder listing, files written, read, renamed,
+and deleted. These defense solutions have been designed            capture heap snapshots of the web application. We performed
+by monitoring the file system activities performed by the          two experiments. First, we ran RØB on a test directory and re-
+process of the ransomware executable. Nevertheless, the file       trieved two heap snapshots: one during the attack and another
+system activities of RØB are different from the traditional        afterward. Second, we adjusted our script to continuously
+ransomware defense solution (see Section 6 for a detailed ex-      capture heap snapshots of RØB every 5 seconds, retrieving a
+planation). So, these solutions will not be effective to detect    total of 4 different snapshot files. We inspected all output files
+RØB. Furthermore, defense solutions such as [39, 54] include       to search for our predefined key. While we did not encounter
+the browser as a benign web application, so that they will         the key in the files from our first experiment, we detected the
+introduce a false positive in detecting RØB with their current     key in a single file from our second experiment. The focus
+implementation.                                                    of these experiments was the potential extraction of a raw
+                                                                   key during a browser-based ransomware attack. Nevertheless,
+   Moreover, RØB uses browsers to perform its malicious            if the intermediate key representations (e.g., AES T-tables)
+actions. Running on the browser without being installed on a       are detected in the snapshot, it would also be sufficient to en-
+system can create additional challenges for API/system call        able the recovery of the key as well. Our experiments reveal
+monitoring solutions [13, 40, 44, 65]. Considering RØB, such       that extracting the key during a browser-based ransomware
+solutions face two difficulties: 1) In RØB, the adversary is free  attack is feasible, but it is not practical. Firstly, taking heap
+to embed his own encryption code to the Encryption module          snapshots (each snapshot is 4.8MB) of every website the
+which will not use the crypto APIs of the OS. 2) RØB runs          user is visiting and storing them for further analysis requires a
+in the browser (a benign program) and monitoring the sys-          huge memory and may potentially affect the user experience.
+tem calls made by the browser will introduce an overhead, as       Additionally, RØB can solely utilize the RSA public key en-
+each website visit creates many browser processes and users        cryption to encrypt each file, potentially evading this type of
+can have multiple tabs open. Therefore, monitoring API/sys-        defense solution.
+tem calls of browser processes would incur high overhead.
+Additionally, monitoring the system calls can considerably         6 Potential Defense Solutions
+slow down the process [63] which can impact the browsing
+experience. For these reasons, API/system calls monitoring         In this study, we propose three different defense solutions
+solutions will not be practical and effective in detecting RØB.    that are based on the above-mentioned approaches to mitigate
+                                                                   this new attack vector at different levels and we implement a
+Key Extraction-based Solutions. Some ransomware de-                proof-of-concept design for each proposed defense solution.
+fense systems use memory forensic techniques to retrieve           In the next subsection, we first explain the details of these
+the keys of the attacker to recover the files. The study in [40]   approaches and present proof of concept implementations.
+presents a ransomware recovery mechanism that stores en-
+cryption keys by hooking the crypto functions of the OS.           6.1 Approach 1: Malicious Modification Iden-
+Similarly, the study in [46] combines process monitoring, and            tification via API Hooking
+file change monitoring to detect ransomware and hook crypto
+API functions to retrieve the key. While these approaches are      In this approach, we aim to find indicators that would ef-
+effective on ransomware families that use Crypto APIs of the       fectively identify malicious modification, hence signal the
+OS, they will be ineffective against RØB-like attacks since it     presence of RØB-like attacks.
+does not use crypto APIs of the OS. Differently, in [33], the      Stopping the attack. We show the file system activities of
+authors aimed to restore the files encrypted by ransomware uti-    RØB in Figure 2. In a read-encrypt-write loop, it reads the
+lizing behavioral features such as encryption time and backup      files in the accessed directory one by one 1 . After that, it
+damaging behavior. The considered ransomware needs priv-           creates a swap file for each file in the directory and writes
+ileges to perform its malicious actions; however, RØB does         the modifications back to the related swap file. We found that
+not need any privileges to perform the attack.                     the FSA API names the swap files by appending the .crswap
+                                                                   extension to the original files 2 . We realized that creating
+   To test the feasibility of key extraction from RØB, we cre-     swap files with .crswap extension for every modified file
+ated a Node.js script utilizing puppeteer [1] to periodically
+
+7080 32nd USENIX Security Symposium                                                                              USENIX Association
+was not documented by the API and it is one unique and              modifications, encryption operation triggers a bigger entropy
+obscure behavior of the API while working on the local file         change on files. We tested and verified this hypothesis by
+system. Lastly, as represented in 3 , it swaps the content          performing in total 500K benign and 500K malicious (encryp-
+of the original file with the swap file and the change made         tion) modification operations on 5000 files with various file
+by the web application becomes permanent. Note that the             types (txt, jpeg, docx, pdf, xlsx in a dataset of files
+modifications made by RØB are not permanent until step 3 .          obtained from [31]. We provided more detailed explanation
+Therefore, intercepting the activity of a web application in        of dataset collection in Section C in Appendix.
+this step prevents RØB from making permanent changes to
+the original files and stops the attack.                               Our analysis with 1 million modified files shows that be-
+Implementation. Based on our analysis, we found that hook-          nign modifications result in very small changes in entropy.
+ing the specific functions of the FSA can stop the activ-           For instance, the entropy of txt, xlsx, jpeg, docx files
+ity of the RØB before it makes a permanent change to the            increases by 0.05 on average after benign modifications. How-
+user files. For this, we implemented a hooking script in            ever, malicious modifications (encryption) on files can result
+JavaScript. While the user is using the browser, the hook-          in large changes in entropy. For example, after encryption, the
+ing script continuously runs in the background and simul-           entropy of files increase by 3.5 for txt, 0.10 for xlsx, 0.60
+taneously checks if critical functions of the FSA API are           for jpeg, 0.60 for docx, and 0.10 for pdf files on average. For
+called by a web application. When the FSA API functions             this reason, we utilize entropy change as a feature to detect
+such as ShowDirectoryPicker, and write are called by a              RØB-like attacks in this solution.
+web application, the hooks of these functions are activated         · File Size Change. We also observed that the file size change
+and the activity of the web application is monitored and            between the original file and its modified version is another
+stopped by this module before permanent malicious changes           indicator to detect the malicious/benign intent of the modifi-
+are made on the user files. Specifically, hooking into the          cation. Since the encryption operation does not expand the
+ShowDirectoryPicker function allows us to get the direc-            data included in the file, the size of the file remains relatively
+tory path that a web application is accessing via FSA API.          similar after the encryption. On the other hand, benign modi-
+                                                                    fications change the size of the file relatively more than the
+   Our implementation considers two patterns of ransomware:         encryption operation.
+1) read-encrypt-overwrite, and 2) read-encrypt-delete-write.
+Considering the first pattern, hooking into the write function         Our analysis with 1 million modified files shows that be-
+stops the web application that is overwriting a file in the         nign modifications on files result in significant changes in
+local file system, thus allowing to check the created swap file.    size. For instance, the size of txt, xlsx, jpeg, and docx files
+In terms of the second pattern, hooking into removeEntry            increases by 15% ( 300Kb) on average after benign modi-
+function of the API allows us to prevent a web application          fications. However, malicious modifications (encryption) on
+from deleting a file. Since some ransomware families do not         files can result in smaller changes in size compared to be-
+work in a read-encrypt-overwrite pattern and instead delete         nign modifications. Particularly, our analysis shows that size
+the original file and write the encrypted version of the original   of file size changes 0.002% for txt, 0.06% for xlsx, 0.14%
+file in a new file. For this type of ransomware, the hooking        for jpeg, 0.012% for docx, and 0.006% for pdf files on av-
+module detects a delete activity, pauses the deletion event, and    erage after the encryption. These results show that the file
+continues to monitor if the web application attempts to create      size chance is another effective feature to identify malicious
+a new file. In this special case, the write function hooking is     modifications.
+activated and enables us to check the created swap file.            Classifier Evaluation. To test the effectiveness of this ap-
+Identifying Malicious Modification. To detect a RØB-like            proach, we created a machine learning classifier that takes the
+ransomware attack, the intent of the modification made by a         entropy change and the file size change of the files as features
+web application to a user's files must be identified. To achieve    and identifies the malicious modifications.We implemented
+that, we identify two indicators, entropy change and file size      the classifier using Python's scikit-learn library. We trained
+change. Both the original version and modified version of the       the classifier with a dataset that includes the features of origi-
+file can be obtained at the same time by pausing the activity       nal files and their artificially modified versions and encrypted
+of the web application in step 3 as depicted in Figure 2.           for various file types. To prevent overfitting, we utilized a 10-
+· Entropy Change. Since files with high entropy can indicate        fold cross-validation. We measured the performance metrics
+the file is encrypted, many ransomware defense solutions used       for various classifiers that were previously used in the vari-
+entropy to identify encrypted files [52]. Particularly, such stud-  ous malware detection systems [52] such as Random Forest
+ies mark a file as encrypted if the entropy of the file is above    (RF), K-nearest Neighbor (KNN), Decision Tree (DT), and
+a threshold. Different from those ransomware solutions in the       XGBoost. Table 3 presents the results for the evaluation of
+literature, we take advantage of having both versions of the        the efficacy of our first approach in identifying encryption on
+file and use the entropy change after modification as a feature     the user files. We observed that the RF classifier outperforms
+instead of threshold comparison. Compared to any benign file        other classifiers in the context of identifying encrypted txt
+                                                                    and docx files by introducing only one false positive (FP)
+
+USENIX Association                                                  32nd USENIX Security Symposium 7081
+Table 3: Performance evaluation of different ML algorithms.        file modifications to completely evade our classifier. With this
+                                                                   insight, we utilized a custom evasion technique that combines
+Model  Acc. Recall Prec. F1 TP       TN FN FP                      both data padding and partial encryption to perfectly mimic
+                                                                   benign modifications made by the user. As the entropy and
+           TXT 0.99 0.99 0.99 0.99 99997 99999 3 1                 size changes in the resulting files closely resemble those in the
+            PDF 0.99 0.99 0.99 0.99 100000 99981 0 19              modified files, this combined technique successfully evaded
+RF                                                                 our classifier, introducing 454 FN cases in total.
+           JPEG 0.99 0.99 0.99 0.99 99996 99996 4 4                Usability & Discussion: Hooking the web applications that
+          DOCX 0.99 0.99 0.99 0.99 99997 99999 3 1                 use the FSA API prevents permanent malicious modifica-
+          XLSX 0.99 0.99 0.99 0.99 99938 99710 62 290              tions before they overwrite the user files. Our current im-
+                                                                   plementation shows entropy change and file size change are
+           TXT 0.99 1 0.99 0.99 100000 99982 0 18                  effective in identifying malicious modifications but introduce
+            PDF 0.99 0.99 0.99 0.99 99988 99990 12 10              false negative and false positive cases in case of evasion at-
+KNN                                                                tempts. Although these attempts are theoretically possible,
+           JPEG 0.99 0.99 0.99 0.99 99995 99989 11 5               they come with a cost and increase the complexity of the
+          DOCX 0.99 1 0.99 0.99 100000 99982 0 18                  attack. Regarding the usability of our first approach, false pos-
+          XLSX 0.99 0.99 0.99 0.99 99692 99888 308 112             itive cases might be introduced by benign web applications
+                                                                   performing heavy compression/encryption as part of legiti-
+           TXT 0.99 0.99 0.99 0.99 99998 99995 2 5                 mate operations. To mitigate this, an alerting module can be
+            PDF 0.98 0.99 0.99 0.99 99951 99981 49 19              implemented to warn the user about potential malicious file
+DT                                                                 changes performed by the browser. This alerting module can
+           JPEG 0.98 0.99 0.99 0.99 99992 99992 8 8                launch a third dialog box that explicitly mentions detected po-
+          DOCX 0.99 0.99 1 0.99 99996 100000 4 0                   tential malicious actions (similar to AVs detecting malicious
+          XLSX 0.99 0.99 0.99 0.99 99700 99942 300 58              files) and the risks of permanent data loss. This new dialog
+                                                                   box would prompt the users to verify the accessed website
+           TXT 0.98 0.99 0.99 0.99 99997 99991 3 9                 and offer the option to proceed or cancel the modification.
+            PDF 0.99 1 0.99 0.99 100000 99983 0 17                 Although this might introduce an additional inconvenience
+XGB                                                                due to the frequent permission dialog prompt, it would help
+           JPEG 0.99 0.99 0.99 0.99 99995 99991 5 9                reduce false positives. Finally, the extortion method of the
+          DOCX 0.99 0.99 0.99 0.99 99998 99995 2 5                 RØB can also be considered to increase the effectiveness of
+          XLSX 0.99 0.99 0.99 0.99 99710 99935 290 65              our second approach. For example, the created files by web
+                                                                   applications and their names can be monitored for the creation
+case. In the case of jpeg files, the DT classifier presents the    of ransom notes.
+best performance by presenting 99.5% accuracy without in-
+troducing any FP. Finally, KNN achieves the best accuracy          6.2 Approach 2: Local Activity Monitoring
+performance on xlsx files introducing only two FP cases.
+                                                                   Our second approach to prevent RØB-like attacks employs
+Evaluation Against Adaptive Attackers. In this approach,           local activity monitoring of web applications that use the FSA
+we showed that entropy and file size changes are simple, yet       API. Such an approach can be implemented to monitor the
+effective features in encryption detection. However, To ana-       following local activities: 1) the FSA API function calls, 2)
+lyze the impact of these evasion techniques on the different       browser process system calls, and 3) file system activities.
+file types, we created a new dataset, which includes 500 dis-      Data Collection. For the benign dataset, we created test fold-
+tinct files (100 per file format) using these evasion techniques.  ers and accessed them via benign web applications. We per-
+We then retrained our classifier with this new dataset, by con-    formed benign operations such as editing the files, remov-
+sidering each evasion technique. A detailed description of the     ing/adding the content from the file. For malicious dataset, we
+dataset generation procedure and classifier selection is given     implemented RØB with different configurations. To start with,
+in Section D in Appendix.                                          we created two non-adaptive configurations. The first one en-
+                                                                   crypts a single file (i.e., RØBEncOne) while the second one
+   Our results showed that entropy is closely proportional to      encrypts 100 files in a single directory (i.e., RØBEncHundred).
+the encryption ratio in the partial encryption technique. In       We also created six more adaptive attacker configurations,
+terms of detection, our classifier introduced 8 FN cases in        which will be explained later in this section. To implement
+total for 500 files with 25% partial encryption. Furthermore,      this approach, we first created a script in Node.js that hooks
+injecting low-entropy data led to a significant size increase      every available function of the FSA API and logs the called
+and decrease in entropy in all file types. We observed that        functions. We used those FSA API function calls as the first
+injecting low-entropy data padding introduced 8 FN cases           feature. Second, while interacting with the file system, we
+in total. Finally, encoding over encryption techniques had
+a deterministic impact on the entropy by setting a fixed en-
+tropy value across all file types. Specifically, Base64, Base32,
+and hexadecimal encoding set the entropy to 5.99, 5.0, and
+3.99 respectively, and increased file sizes by 33%, 60%, and
+100%. Hexadecimal encoding was most effective against our
+classifier, introducing 12 FN cases in total. Our experiments
+revealed that while these techniques alter both file size and
+entropy in ways that can make detection more challenging,
+they fall short of fully mimicking the characteristics of benign
+
+7082 32nd USENIX Security Symposium                                USENIX Association
+(a) The FSA API Function Calls (2-gram)  (b) System Calls (4-gram)  (c) File System Activities (1-gram)
+
+Figure 3: The heatmap plots for the similarity matrices of the features used in the local activity monitoring. The darker marking
+means the pair is more differentiable.
+
+retrieved the PID with lsof and monitored the system calls        and vscode as an example. We observed that vscode uses a
+made by the process by strace. We used the system calls as        significantly higher number of write-related system calls than
+the second feature type. Finally, we collected the file system    RØB. We found that while RØB's system calls are uniformly
+activities via instrumenting inotifywait.                         distributed, vscode's system calls are randomly distributed for
+FSA API Function Calls. The FSA API implements sev-               each file in terms of the file size change. That is, every time
+eral functions (getFile, write) that can be used by web           a location in memory is accessed by a benign application,
+applications to interact with the local files of users. We hy-    varying sizes of changes are performed while the malicious
+pothesize that the sequence of function calls of RØB-like         applications apply almost the same amount of change every
+ransomware attacks and benign web applications display dis-       time a location in memory is accessed.
+tinguishable patterns, which can be used to detect the attacks.
+API call monitoring has been successfully used by many mal-       File System Activities. File system activities are utilized by
+ware detection studies [26]. For example, Windows API call        ransomware detection mechanisms in the literature [52]. How-
+sequences are considered one of the representative character-     ever, none of these approaches focus on the file system of
+istics in behavior-based malware detection [27]. Our method       activity of the browser. To minimize the overhead, this ap-
+differs from those studies because the FSA API function calls     proach can benefit from API hooking and identification of
+are specific to RØB-like ransomware; thereby never have been      the portion of the file system accessed by the web application.
+analyzed.                                                         Hence, only the corresponding portion of the file system that
+                                                                  the web application accesses can be monitored for low-level
+   Our initial analysis on the dataset showed that getFile()      file system activities. We first analyzed the file system ac-
+ Write()  Write.close() patterns occur for both be-               tivities of RØB and vscode manually. Our analysis showed
+nign web applications and RØB due to the natural usage of         that patterns of file system activities are generated only once
+the FSA API. However, we observed that while this pattern         for each file on the test folder for RØB, whereas we see the
+repeats once for every file in the test folder for RØB, the pat-  occurrence of the pattern multiple times for individual files
+tern is repeated multiple times for the benign web application    for vscode. This observation can be used to detect RØB-like
+as the user performs multiple changes on the files. This is       ransomware attacks.
+expected as ransomware is incentivized to encrypt as many
+files as possible while users of benign web applications are      Evaluation Against Adaptive Attackers. To evaluate Ap-
+expected to work and modify a single file multiple times.         proach 2 against adaptive attackers, we created six different
+System Calls. Although RØB uses Wasm for encryption and           versions of RØB: 1) RØBReordered: changes the order of the
+does not employ the crypto APIs of the platform, it would         FSA API calls randomly, 2) RØBWithBenign: adds benign
+still be possible to monitor the other system calls made by       modifications (e.g. writing) between the encryption opera-
+that browser process while interacting with the file system.      tions, 3) RØBWithBenAPI: makes benign API calls (e.g.,
+We hypothesize that the system calls made by web applica-         battery status), 4) RØBWithEncWait: waits a random amount
+tions through the browser can be used to differentiate benign     of time during the encryption process, 5) RØBWithFSAWait:
+and malicious RØB-like web applications. The system call          adds random time intervals between the FSA API calls, and 6)
+monitoring has been successfully utilized by numerous differ-     RØBWithBothWait: adds random time intervals both during
+ent types of malware detection methods in the literature [26].    encryption and between the FSA calls.
+Our study differs from those studies as we only monitor the
+browser's system calls.                                           N-gram Analysis. In this part, we analyze nine benign and
+                                                                  eight (two non-adaptive and six) malicious web applications
+   We first manually inspected the system calls made by RØB       using n-gram analysis. We calculated the features using the
+                                                                  10% quantile ranges and used Euclidean for the distance cal-
+
+USENIX Association                                                  32nd USENIX Security Symposium 7083
+culation. We presented our results as heatmaps in Figure 3.       the number of allowed modifications before additional user
+We found that web applications generate 33 FSA API function       intervention is required. This threshold could be determined
+calls on average while they generate 15k system calls and 8k      based on typical usage patterns to minimize false positives.
+file system activities on average. We experimentally adjusted
+the value of n for each feature. We observed the best results     6.3 Approach 3: New UI Design
+for 2-gram in FSA API function calls, 4-gram for system calls,
+and 1-gram for file system activities.                            In this approach, instead of detecting the malicious activity
+                                                                  of RØB, we aim to raise the security awareness of the users
+   Overall results show that while ransomware samples are         and better inform them about the risks of allowing web appli-
+clearly differentiable using the FSA API function calls and file  cations to interact with local files.
+system activities, they are less differentiable with the system   Current Permission Boxes. The current dialog boxes imple-
+calls. For example, a threshold-based detection system based      mented in Chromium are shown in Figure 4 and 5. In the
+on system calls would likely miss the ransomware sample en-       permission dialog box demonstrated in Figure 4, the web ap-
+crypting 100 files in a directory (i.e., RØBEncHundred). The      plication asks for a permission to read the contents of all of
+reason for this is that the impact of encrypting different files  the files inside the directory selected by the user. In the per-
+cannot be observed in the system calls; therefore, encrypting     mission dialog box presented in Figure 5, the web application
+multiple files is creating a benign-looking behavior, which       asks for a permission to be able to (over)write all of the files
+is similar to a user modifying a file multiple times. While       inside the directory picked by the user.
+the FSA API function calls and file system activities fea-        Issues. We found the following issues in the current permis-
+tures contain the modified file, which makes the multiple files   sion dialog boxes. First, they do not clearly state the risks
+encrypting ransomware even easier to detect. On the other         of approving the permissions. For example, the current read
+hand, our results show that re-ordering the API calls, adding     access permission box does not have any indicator for the po-
+benign API calls, or random waiting strategies do not have        tential information disclosure of user-sensitive files. Similarly,
+any impact on FSA API function calls and file system activi-      the current write access permission box does not have warn
+ties since other benign API calls and timestamps of the API       for the risks of permanent data loss. Second, despite their
+calls are not considered during the feature extraction. We also   different capabilities read and write permission dialog boxes
+observed that out of all adaptive strategies, the strategies in-  look very similar. The users may mistakenly click one another
+volving additional waiting time affect the system calls feature   and give access to a web application. Third, the changes made
+significantly, resulting in many false positives. Consequently,   by the web application are not explicitly given in the write
+a threshold-based detection system using system calls could       dialog box to help the user while accepting the permanent
+fail to detect ransomware samples such as RØBWithEncWait,         changes. Fourth, since it is not stated in the current permission
+RØBWithFSAWait, and RØBWithBothWait. Similarly, such              dialog boxes, the user may not be aware of the fact that the
+a detection system would also misclassify some benign web         web application will able to access the subdirectories inside
+applications like photopea, text-editor, or excalidraw.           the selected directory too.
+                                                                  Design Decisions. Designing user interfaces for permissions
+Usability & Discussion. In this approach, we showed the           to ease security decisions is crucial. We define our design
+feasibility of local activity monitoring to detect RØB-like ran-  decisions by applying guidelines from the state-of-the-art
+somware. While monitoring the local activity of the web ap-       studies [12, 20, 29, 49]. We note the following:
+plications benefits from hooking to minimize the overhead, as     · The proposed interface must explicitly show the risks.
+we observed in our evaluation against multiple types of adap-     In [20], it has been shown that the users are likely to grant
+tive attackers, adversaries can cause false results by changing   dangerously excessive permissions when previous instances
+the implementation of RØB to call the other functions of          of them have not contained reason for concern. For this, the
+the API, make redundant system calls, or make a few small         user interface can include words like "sensitive information
+changes on the files before encryption. On the other hand,        disclosure", "permanent loss". To further mitigate the ran-
+benign applications such as cloud storage services (Google        somware threat in the write permission box, the keyword can
+Drive, Dropbox, OneDrive), online code editors (GitHub, VS        also be like "encryption" or "ransomware".
+Code), data processing tools (e.g., machine learning appli-       · The proposed user interface must be designed with col-
+cations), and batch file conversion tools may perform mass        ors stated in the previous studies [49] that would effectively
+modification on multiple files, similar to the patterns of RØB.   capture the attention of the user. The warning icons have
+In such cases, browser vendors might consider integrating         been shown to be effective in the context of connection secu-
+security alerts after a certain amount of modification with       rity [30] to attract the user's attention.
+clear information about the nature of the threat. So, users       · Permission dialog boxes must not be identical so that the
+can make informed decisions. This security alert may include      user would know the difference for each box.
+information about the application requesting access, the types    · The proposed new user interface must show all of the ac-
+and quantity of modifications being made by the web appli-        cessed/changed files for a meaningful user decision [48].
+cations. Additionally, browsers might define a threshold for
+
+7084 32nd USENIX Security Symposium                               USENIX Association
+                                                                               Old UI
+
+                      Old UI
+
+                                                                               Save changes to directory_name?
+
+Let site view files?                                                           www.example.com will be able to edit directory_name until you close all tabs
+                                                                               for this site.
+www.example.com will be able to view files in directory_name until you close
+all tabs for this site.                                                                                         Cancel  Save changes
+
+                              Cancel  View files
+
+                                                                               New UI
+
+                      New UI                                                   Save changes to directory_name?
+
+                                                                               Warning! www.example.com will be able to edit directory_name and its
+                                                                               subdirectories until you close all tabs for this site.
+
+Let site view files?
+
+Warning! www.example.com will be able to read all files in                     The changes made by www.example.com can cause permanent loss
+directory_name and its subdirectories until you close all tabs for this site.  of your local data. See the impacted files....
+
+www.example.com might attempt to steal your sensitive information.             - Edited /Users/Alice/Cloud/directory_name/test1.txt
+                                                                               - Edited /Users/Alice/Cloud/directory_name/test2.txt
+                                                                               - Edited /Users/Alice/Cloud/directory_name/sub_directory/test3.txt
+
+Get more information on the possible risks. Does this website look             Get more information on the possible risks. Does this website look
+suspicious? Report it here                                                     suspicious? Report it here
+
+                              Cancel  View files
+
+                                                                                                                Cancel  Save changes
+
+Figure 4: Read access permission box (old and new).                            Figure 5: Write access permission box (old and new).
+
+· The proposed new user interface must include a link that                     to extract keys and recover the files.
+redirects the user to a web page for more information about                    Web API Security. Several works in the literature have ana-
+the API and its risks.                                                         lyzed the security and privacy of emerging web APIs. In [32],
+Improvements Over Old UI. With these design decisions,                         the authors identified a vulnerability in the Geolocation API,
+we proposed two new UIs as shown in Figure 4 and Figure 5                      analyzed its impact, and discussed potential countermeasures.
+for the read and write access, respectively. In the new UIs, we                In [55], the authors explored a new attack vector through the
+added the warning icon, the keyword "subdirectory" in the                      screen-sharing API and discussed the effectiveness of the
+explanation, and a hyperlink to get more information about                     existing web defense systems. In [62], Weeks discussed the
+this API and its risks. Also, in the write box, we added the                   possible adverse effects of exploiting the FSA API, which
+keywords such as "permanent loss" and an option allowing                       includes data exfiltration and the potential code execution.
+users to see which files were modified by the web application.
+Usability & Discussion: The key benefit of the new UI de-                      8 Conclusion
+sign approach is its seamless integration with the existing
+permission dialog boxes, without incurring any additional                      In this work, we designed and implemented the first browser-
+overhead. The new UI clearly outlines the capabilities of                      based ransomware - RØB and showed the inefficacy of the
+web applications and any potential malicious intent they may                   underlying FSA API documentation. Our extensive evalua-
+possess. Furthermore, to enhance both the effectiveness and                    tions with 3 different OSs, 29 distinct directories and 5 cloud
+usability of this approach, the new UI could incorporate ani-                  providers showed that RØB is capable of encrypting numer-
+mations and avatars to boost user engagement and understand-                   ous types of files in various local directories, cloud-integrated
+ing [36], incorporate multilingual support, and integrate with                 directories, external storage devices, and network-shared fold-
+accessibility technologies [18]. The new UI design can be                      ers. As existing ransomware detection systems including com-
+integrated into the API's source code, this approach directly                  mercial antivirus solutions face several issues against RØB
+impacts every web application utilizing the FSA API, i.e., no                  due to its distinct features, there was a need to propose a new
+installation required. Although redesigning user interfaces                    defense solution against RØB-style attacks. Therefore, we
+can help in protecting users from various attacks, an attacker                 proposed three different defense approaches to mitigate this
+can still gain the user's trust via malicious tactics [34, 41].                new attack vector at different levels.
+
+7 Related Work                                                                 Acknowledgements
+
+Ransomware Defense. The ransomware defense approaches                          We thank the anonymous reviewers and our shepherd for
+can be grouped into three categories: static analysis-based,                   their helpful feedback and time. We also express our sincere
+dynamic analysis-based, and key extraction-based. Static                       gratitude to the developers of the FSA API at Google for their
+analysis-based solutions [64] use structural features such as                  support and cooperation. Moreover, this work was partially
+strings and opcodes to detect ransomware. Dynamic analysis-                    supported by the US National Science Foundation (Awards:
+based solutions use behavioral features such as network and                    1663051, 2039606, 2219920), Cyber Florida, Google ASPIRE
+registry activity, API/system call usage [13, 40, 65], I/O ac-                 Program, and Microsoft. The views expressed are those of the
+cess patterns, and file system activity [52], network traf-                    authors only, not of the funding agencies.
+fic features [14, 21, 22, 47], registry changes [35, 37]. The
+works [33,46] used memory forensics and behavioral analysis
+
+USENIX Association                                                             32nd USENIX Security Symposium 7085
+References                                                         [18] J. P. Bigham, I. Lin, and S. Savage, "The effects of "not
+                                                                         knowing what you don't know" on web accessibility
+ [1] "Puppeteer," https://pptr.dev/, 2023.                               for blind web users," in Proceedings of the 19th Inter-
+                                                                         national Conference on Computers and Accessibility,
+ [2] "Enigma," https://github.com/cubbit/enigma, 2019.                   2017.
+
+ [3] "Version history overview," https://help.dropbox.com          [19] Brave, "Remove support for native file system api," http
+      /files-folders/restore-delete/version-history-overview,            s://github.com/brave/brave-browser/issues/11407#iss
+      2020.                                                              uecomment-851742821, 2019.
+
+ [4] "The file system access api with origin private file sys-     [20] C. Bravo-Lillo, S. Komanduri, L. F. Cranor, R. W.
+      tem," https://webkit.org/blog/12257/the-file-system-a              Reeder, M. Sleeper, J. Downs, and S. Schechter, "Your at-
+      ccess-api-with-origin-private-file-system/, 2022.                  tention please: Designing security-decision uis to make
+                                                                         genuine risks harder to ignore," in Proceedings of the
+ [5] "Kaspersky total security," https://usa.kaspersky.com/to            Ninth Symposium on Usable Privacy and Security, 2013.
+      tal-security, 2022.
+                                                                   [21] K. Cabaj, M. Gregorczyk, and W. Mazurczyk,
+ [6] "Protecting against consent phishing," https://docs.mic             "Software-defined networking-based crypto ransomware
+      rosoft.com/en-us/azure/active-directory/manage-apps/               detection using http traffic characteristics," Computers
+      protect-against-consent-phishing, 2022.                            and Electrical Engineering, 2018.
+
+ [7] "Browser market share worldwide," https://gs.statcount        [22] K. Cabaj and W. Mazurczyk, "Using software-defined
+      er.com/browser-market-share, 2023.                                 networking for ransomware mitigation: The case of cryp-
+                                                                         towall," IEEE Network, 2016.
+ [8] "Can i use file system access api?" https://caniuse.com/
+      native-filesystem-api, 2023.                                 [23] Y. Chen, Y. Gao, N. Ceccio, R. Chatterjee, K. Fawaz,
+                                                                         and E. Fernandes, "Experimental security analysis of
+ [9] "Project fugu api showcase," https://developer.chrome.c             the app model in business collaboration platforms," in
+      om/blog/fugu-showcase/?api=file-system-access, 2023.               31st USENIX Security Symposium, 2022.
+
+[10] "View activity & file versions," https://support.google.c     [24] Chromium, "File system access web api - chromium
+      om/drive/answer/2409045, 2023.                                     security model - google docs," https://docs.google.com/
+                                                                         document/d/1NJFd-EWdUlQ7wVzjqcgXewqC5nzv_q
+[11] "Visual studio code," https://vscode.dev/, 2023.                    II4OvlDtK6SE8/edit, 2023.
+
+[12] D. Akhawe and A. P. Felt, "Alice in warningland: A            [25] A. Continella, A. Guagnelli, G. Zingaro, G. Pasquale,
+      Large-Scale field study of browser security warning                A. Barenghi, S. Zanero, and F. Maggi, "Shieldfs: A self-
+      effectiveness," in 22nd USENIX Security Symposium,                 healing, ransomware-aware filesystem," in Proceedings
+      2013.                                                              of the 32nd Annual Conference on Computer Security
+                                                                         Applications, 2016.
+[13] B. Al-rimy, M. Maarof, Y. Prasetyo, M. M. S. Z. Syed,
+      Shaid, and A. F. M. Ariffin, "Zero-day aware decision        [26] M. Egele, T. Scholte, E. Kirda, and C. Kruegel, "A sur-
+      fusion-based model for crypto-ransomware early detec-              vey on automated dynamic malware-analysis techniques
+      tion," International Journal of Integrated Engineering,            and tools," ACM Comput. Surv., 2008.
+      2018.
+                                                                   [27] A. A. E. Elhadi, M. A. Maarof, and B. I. Barry, "Improv-
+[14] O. M. K. Alhawi, J. Baldwin, and A. Dehghantanha,                   ing the detection of malware behaviour using simplified
+      "Leveraging machine learning techniques for windows                data dependent api call graph," International Journal of
+      ransomware network traffic detection," in Cyber Threat             Security and Its Applications, 2013.
+      Intelligence, 2018.
+                                                                   [28] FBI, "Spoofing and phishing," https://www.fbi.gov/sc
+[15] Avast, "Avast one essential protection for your life today,"        ams-and-safety/common-scams-and-crimes/spoofing-
+      https://www.avast.com/en-us/avast-one#pc, 2022.                    and-phishing, 2023.
+
+[16] AVG, "Get free antivirus that's trusted by experts," https:   [29] A. P. Felt, S. Egelman, D. A. Matthew Finifter, and
+      //www.avg.com/en-us/homepage#pc, 2022.                             D. Wagner, "How to ask for permission," in 7th USENIX
+                                                                         Workshop on Hot Topics in Security, 2012.
+[17] S. Bhansali, A. Aris, A. Acar, H. Oz, and A. S. Uluagac,
+      "A first look at code obfuscation for webassembly," in
+      Proceedings of the 15th ACM Conference on Security
+      and Privacy in Wireless and Mobile Networks, 2022.
+
+7086 32nd USENIX Security Symposium                                USENIX Association
+[30] A. P. Felt, R. W. Reeder, A. Ainslie, H. Harris,            [41] N. Kshetri, "The economics of click fraud," IEEE Secu-
+      M. Walker, C. Thompson, M. E. Acer, E. Morant, and               rity Privacy, 2010.
+      S. Consolvo, "Rethinking connection security indica-
+      tors," in Twelfth Symposium on Usable Privacy and          [42] Malwarebytes, "Malwarebytes browser guard," https:
+      Security, 2016.                                                  //www.malwarebytes.com/browserguard, 2023.
+
+[31] S. Garfinkel, P. Farrell, V. Roussev, and G. Dinolt,        [43] ----, "Malwarebytes premium for windows," https:
+      "Bringing science to digital forensics with standardized         //www.malwarebytes.com/premium, 2023.
+      forensic corpora," digital investigation, 2009.
+                                                                 [44] F. Martinelli, F. Mercaldo, C. Michailidou, and A. Sara-
+[32] X. Han, J. Xiong, W. Shen, Z. Lu, and Y. Liu, "Loca-              cino, "Phylogenetic analysis for ransomware detection
+      tion heartbleeding: The rise of wi-fi spoofing attack via        and classification into families," in ICETE, 2018.
+      geolocation api," in ACM SIGSAC Conference on Com-
+      puter and Communications Security, 2022.                   [45] M. Medhat, S. Gaber, and N. Abdelbaki, "A new static-
+                                                                       based framework for ransomware detection," 2018 IEEE
+[33] J. Huang, J. Xu, X. Xing, P. Liu, and M. K. Qureshi,              16th Intl Conf. Congress, 2018.
+      "Flashguard: Leveraging intrinsic flash properties to de-
+      fend against encryption ransomware," in ACM SIGSAC         [46] S. Mehnaz, A. Mudgerikar, and E. Bertino, "Rwguard:
+      Conference on Computer and Communications Security.              A real-time detection system against cryptographic ran-
+      Association for Computing Machinery, 2017.                       somware," in Research in Attacks, Intrusions, and De-
+                                                                       fenses, 2018.
+[34] L.-S. Huang, A. Moshchuk, H. J. Wang, S. Schecter,
+      and C. Jackson, "Clickjacking: Attacks and defenses,"      [47] J. Modi, I. Traore, A. Ghaleb, K. Ganame, and S. Ahmed,
+      in 21st USENIX Security Symposium, 2012.                         "Detecting ransomware in encrypted web traffic," in
+                                                                       Foundations and Practice of Security, 2020.
+[35] J. Hwang, J. Kim, S. Lee, and K. Kim, "Two-stage ran-
+      somware detection using dynamic analysis and machine       [48] Mozilla, "Mozilla specification positions," https://mozi
+      learning techniques," Wireless Personal Communica-               lla.github.io/standards-positions/#file-system-access,
+      tions, 2020.                                                     2022.
+
+[36] Y. Javed and M. Shehab, "Investigating the animation        [49] J. Muñoz-Arteaga, R. M. González, M. V. Martin, J. Van-
+      of application permission dialogs: A case study of face-         derdonckt, and F. Álvarez Rodríguez, "A methodology
+      book," in Data Privacy Management and Security As-               for designing information security feedback based on
+      surance, G. Livraga, V. Torra, A. Aldini, F. Martinelli,         user interface patterns," Advances in Engineering Soft-
+      and N. Suri, Eds., 2016.                                         ware, 2009.
+
+[37] B. Jethva, I. Traoré, A. Ghaleb, K. Ganame, and             [50] OneDrive, "Restore a previous version of a file stored
+      S. Ahmed, "Multilayer ransomware detection using                 in onedrive," https://support.microsoft.com/en-us/offic
+      grouped registry key operations, file entropy and file           e/restore-a-previous-version-of-a-file-stored-in-oned
+      signature monitoring," Journal of Computer Security,             rive-159cad6d-d76e-4981-88ef-de6e96c93893, 2021.
+      2019.
+                                                                 [51] O. Or-Meir, N. Nissim, Y. Elovici, and L. Rokach, "Dy-
+[38] A. Kharaz, S. Arshad, C. Mulliner, W. Robertson, and              namic malware analysis in the modern era--a state of
+      E. Kirda, "UNVEIL: A large-scale, automated approach             the art survey," ACM Comput. Surv., 2019.
+      to detecting ransomware," in 25th USENIX Security
+      Symposium, 2016.                                           [52] H. Oz, A. Aris, A. Levi, and A. S. Uluagac, "A survey
+                                                                       on ransomware: Evolution, taxonomy, and defense solu-
+[39] A. Kharraz and E. Kirda, "Redemption: Real-time pro-              tions," ACM Comput. Surv., 2022.
+      tection against ransomware at end-hosts," in Research
+      in Attacks, Intrusions, and Defenses. Springer Interna-    [53] H. Oz, F. Naseem, A. Aris, A. Acar, G. S. Tuncay, and
+      tional Publishing, 2017.                                         A. S. Uluagac, "Poster: Feasibility of malware visual-
+                                                                       ization techniques against adversarial machine learning
+[40] E. Kolodenker, W. Koch, G. Stringhini, and M. Egele,              attacks," in 43rd IEEE Symposium on Security and Pri-
+      "Paybreak: Defense against cryptographic ransomware,"            vacy (S&P), 2022.
+      in Proceedings of the 2017 ACM on Asia Conference on
+      Computer and Communications Security, 2017.                [54] N. Scaife, H. Carter, P. Traynor, and K. R. B. Butler,
+                                                                       "Cryptolock (and drop it): Stopping ransomware attacks
+                                                                       on user data," in IEEE 36th International Conference
+                                                                       on Distributed Computing Systems), 2016.
+
+USENIX Association                                               32nd USENIX Security Symposium 7087
+[55] Y. Tian, Y. C. Liu, A. Bhosale, L. S. Huang, P. Tague,      the editor of the FSA documentation for possible documenta-
+      and C. Jackson, "All your screens are belong to us: At-    tion [61] improvements as they agreed it was a weak expla-
+      tacks exploiting the html5 screen sharing api," in IEEE    nation. Although we had several exchanges with them, they,
+      Symposium on Security and Privacy, 2014.                   unfortunately, did not swiftly act on it to provide any improve-
+                                                                 ments (although we offered our help). Note that at that point,
+[56] Trendmicro, "Antivirus+ security," https://www.trendm       we have been already conducting an extensive analysis on
+      icro.com/en_me/forHome/products/antivirus-plus.ht          this problem (i.e., different OSes, anti-virus products, cloud
+      ml, 2022.                                                  providers, etc.).
+                                                                 Security Bug Report and Opening GitHub Issue: After-
+[57] A. van der Heijden and L. Allodi, "Cognitive triaging of    wards, we submitted a security bug report to Chromium on
+      phishing attacks," in 28th USENIX Security Symposium,      November 7, 2022, which is not a public process, and ex-
+      2019.                                                      plained our findings and possible documentation improve-
+                                                                 ments. They recommended us to open a public GitHub issue
+[58] E. von Zezschwitz, S. Chen, and E. Stark, ""it builds       in order to be able to swiftly update the documentation based
+      trust with the customers" - exploring user perceptions of  on our findings. However, due to the anonymity requirements
+      the padlock icon in browser ui," ser. IEEE Security and    of the conference and to prevent the further publicization of
+      Privacy Workshops. IEEE Computer Society, 2022.            the issue at that moment, we have not opened an issue on
+                                                                 GitHub then.
+[59] W3C, "File system access," https://github.com/WICG/         Video Conference with the FSA API Developers/Editors:
+      file-system-access, 2023.                                  Then, we contacted and met with the FSA API developer-
+                                                                 s/editors via video conference on November 10, 2022. In the
+[60] ----, "File system access," https://wicg.github.io/file-    meeting, we further explained the impacts of the ransomware
+      system-access/, 2023.                                      through the FSA API, possible documentation improvements,
+                                                                 and our defense solutions to the developers. They acknowl-
+[61] ----, "File system access," https://wicg.github.io/file-    edged that the ransomware risks in the documentation were
+      system-access/#security-ransomware, 2023.                  downplayed and agreed to update the documentation based
+                                                                 on our findings. In the meeting, we also mentioned the po-
+[62] M. Weeks, "Internal affairs: Hacking file system access     tential publication of the paper to the developers and editors
+      from the web," https://i.blackhat.com/USA21/Wednesd        of the API. In turn, they asked us to provide them with our
+      ay-Handouts/us-21-Internal-Affairs-Hacking-File-Sys        suggestions on how to improve the documentation and we
+      tem-Access-From-The-Web.pdf, 2021.                         have been working with them on this front to better reflect
+                                                                 the ransomware risks in the documentation.
+[63] L. Zeng, Y. Xiao, and H. Chen, "Linux auditing: Over-
+      head and adaptation," in IEEE International Conference     B Further UI Improvements
+      on Communications (ICC), 2015.
+                                                                 Further UI improvements are also possible. We found that
+[64] B. Zhang, W. Xiao, X. Xiao, A. K. Sangaiah, W. Zhang,       some cloud platforms (e.g., OneDrive) have similar permis-
+      and J. Zhang, "Ransomware classification using patch-      sion boxes for file-sharing, which include other details that
+      based cnn and self-attention network on embedded n-        can be adapted by the FSA API. First, there is an icon of the
+      grams of opcodes," Future Generation Computer Sys-         accessed website to prevent spoofing attacks. Second, there
+      tems, 2020.                                                is an explanation that the website is not endorsed by the API.
+                                                                 Moreover, there is a link to report suspicious websites, which
+[65] J. Zhou, M. Hirose, Y. Kakizaki, and A. Inomata, "Eval-     could help the developer in building a blocklist to help users
+      uation to classify ransomware variants based on correla-   in the long term. Finally, there is a link to the website's pri-
+      tions between apis," in 6th International Conference on    vacy statement to learn more about how the data will be used
+      Information Systems Security and Privacy, 2020.            by the website. We have not integrated these into our designs
+                                                                 in Figure 4 and 5 to maintain the simplicity of our design.
+Appendix
+                                                                 C Approach 1 - Dataset Creation
+A Responsible Disclosure Communication
+     Process Details                                             To calculate the size and entropy change between an origi-
+                                                                 nal file and its modified versions, we need a comprehensive
+In this section, we provide the details of our communication     dataset that covers different types of files with various ver-
+and disclosure process with the respective developers and        sions where users performed a diverse set of modifications.
+editors of the FSA API, which is Google.
+Email Contact: On February 17, 2022 we sent an email to
+one of the main developers of the FSA API about our find-
+ings. They acknowledged our findings and redirected us to
+
+7088 32nd USENIX Security Symposium                              USENIX Association
+Table 4: The list of web applications used for the local activity                       words to the end of the text file.
+monitoring experiments.
+                                                                                        Modification of docx files For the content removal opera-
+Web Application  Type       Link                                                        tion from a docx file, we used a similar methodology with
+RobEncOne        malicious  N/A                                                         text files. Specifically, we first generate a random number r
+RobEncHundred    malicious  N/A                                                         between 1 and n where n is the number of words in the docx
+RoBReordered     malicious  N/A                                                         file. Then, starting from the end of the docx file, we remove
+RoBwithBenign    malicious  N/A                                                         r words from the docx file to create the content removed
+RoBwithBenAPI    malicious  N/A                                                         version. In the context of creating content-added versions of
+RoBwithEncWait   malicious  N/A                                                         the docx file, we utilized our docx content database. Such
+RoBwithFSAWait   malicious  N/A                                                         that, we retrieve r words randomly from the docx content
+RoBBothWait      malicious  N/A                                                         database and also randomly choose a jpeg file from our jpeg
+bangle           benign     https://bangle.io/                                          file database and append them to the docx file.
+drawio           benign     https://app.diagrams.net/                                   Modification of pdf files For the content removal operation
+excalidraw       benign     https://excalidraw.com/                                     from a pdf file, we first generate a random number r that is in
+GitHub           benign     https://github.dev/github/dev                               the range of [1, n] where n represents the number of pages of
+glitch           benign     https://googlechromelabs.github.io/browser-fs-access/demo/  the pdf file. Afterward, we remove the content that resides on
+photopea         benign     https://www.photopea.com/                                   the rth page of the pdf file to generate the content-removed
+svgco            benign     https://svgco.de/                                           version of the file.To generate the content-added version of
+text-editor      benign     https://googlechromelabs.github.io/text-editor/             the file, we randomly choose a pdf file from our dataset and
+vscode           benign     https://vscode.dev/                                         add its content on the rth page to the end of the pdf file.
+                                                                                        Modification of jpeg files We perform the content-removal
+We searched for such databases in various resources including                           operation on jpeg file by cropping the file randomly. To
+IEEE DataPort, Google Dataset Search, and Kaggle. However,                              achieve this, we define two random variables, namely r1 that
+we could not find a suitable dataset for our needs. Hence, we                           is between 1 and n, and r2 that is between 1 and m, where n
+decided to create our own dataset that includes different file                          represents the width and m represents the height of the jpeg
+types with various realistically-generated versions.                                    file. By using these randomly generated width and height
+                                                                                        values, we crop the jpeg file starting from the left top cor-
+   We selected five file types, namely pdf, docx, xlsx,                                 ner ((0,0) coordinates). After this operation, the jpeg file is
+txt, jpeg, that may contain sensitive data of users and enter-                          cropped to become an r1xr2 image. We create the other 50 dif-
+prises. The Digital Corpora consists of almost 1 million real                           ferent versions of a jpeg file by merging it with another jpeg
+files from government websites and is distributed freely [31].                          file randomly selected from our database, which includes all
+Using the Digital Corpora, we collected 1000 files from each                            jpeg files in our dataset.
+file type. The average file size of each type of a file is 0.67MB                       Modification of xlsx files To perform the removal operation
+for pdf, 0.24MB for docx, 0.29MB for xlsx, 0.58MB for                                   on an xlsx file, we first calculate the number of rows in a
+txt, and 0.15MB for jpeg formats.                                                       xlsx file. Then, we define a range between 1 and n, where n
+                                                                                        is the number of rows in the xlsx file. Afterward, we create a
+   To mimic user behavior on the files, we considered adding                            random number r in this range and remove r rows from the
+and removing contents from the files to generate different                              end of the xlsx file. To perform adding operation, we add a
+versions. While doing that, we paid attention to preserving                             random number (r) of rows to the end of the xlsx file that is
+the file formats. To have a comprehensive dataset, we created                           retrieved from xlsx file database.
+100 different versions of each file. The first 50 versions are                          Reflecting Malicious Changes. To reflect malicious changes
+content removed versions of files are created to mimic dele-                            (i.e, encryption with RØB) on the files, we encrypted each
+tion operations made by users. On the other hand, the other                             file including modified versions in our dataset with RØB that
+second 50 versions are content-added versions of the files are                          uses the AES-256 encryption algorithm.
+created to reflect data appending operation made by the user.
+We developed Python scripts that perform these procedures                               D Approach 1 - Evaluation Against Adaptive
+on the files. The low-level details of how we created 100 dif-                               Attackers
+ferent versions of each file with respect to each file type are
+summarized as follows:                                                                  To evaluate our first approach against more adaptive attackers,
+                                                                                        we randomly selected 500 files (100 per file type) from our
+Modification of txt files For the content removal operation                             original benign dataset. We created corresponding 500 mali-
+from a text file, we define a range between 1 and n, where n is                         cious files for each evasion technique. We repeated this pro-
+the number of words in the text file. Afterward, we generate a                          cess for different techniques. Then, we evaluated the impact
+random number r in the range of [1, n] using Python's built-in                          of the technique and its success rate in evading our classifier.
+random function that generates random numbers with respect
+to Uniform Random Distribution. Then, starting from the end
+of the text file, we remove r words from the original version
+of the text file and created the new version of the file. For
+the content insertion operation, we generate another random
+number r in the same way and we randomly choose r words
+from the word database that includes the contents of all the
+text files in our dataset and append these randomly chosen
+
+USENIX Association                                                                      32nd USENIX Security Symposium 7089
+Table 5: Evaluation against more adapt attackers.                  hexadecimal encoding.
+                                                                   Custom Evasion: In this scenario, we combined both data
+Technique           Acc. Recall Prec. F1 TP TN FN FP               padding and partial encryption techniques to mimic the benign
+                                                                   modification of the user. To achieve that, we continuously
+                    TXT 1.0 1.0        1.0 1.0 100 0 0 0           encrypt the 25% of the file and injected a amount of data until
+                                       1.0 0.98 98 0 2 0           it achieves the ±10% of the average entropy and size of the
+Partial Encryption  PDF 0.98 0.98      1.0 0.96 99 0 1 0           benignly modified file.
+                    JPEG 0.99 0.99     1.0 0.98 98 0 2 0
+                                       1.0 0.98 97 0 3 0
+                    DOCX 0.98 0.98     1.0 1.0 100 0 0 0
+                                       1.0 0.98 97 0 3 0
+                    XLSX 0.97 0.97     1.0 0.96 99 0 1 0
+                                       1.0 0.96 99 0 1 0
+                    TXT 1.0 1.0        1.0 0.98 97 0 3 0
+                                       1.0 1.0 100 0 0 0
+Low-entropy         PDF 0.97 0.97      1.0 0.99 99 0 1 0
+                                       1.0 0.96 99 0 1 0
+Data Padding        JPEG 0.99 0.99     1.0 0.99 99 0 1 0
+                                       1.0 0.97 96 0 4 0
+                    DOCX 0.99 0.99     1.0 1.0 100 0 0 0
+                                       1.0 1.0 100 0 0 0
+                    XLSX 0.97 0.97     1.0 1.0 100 0 0 0
+                                       1.0 1.0 100 0 0 0
+                    TXT 1.0 1.0        1.0 0.99 99 0 1 0
+                                       1.0 1.0 100 0 0 0
+Post-encryption     PDF 0.99 0.99      1.0 0.96 94 0 6 0
+                                       1.0 0.97 95 0 5 0
+Encoding (Base64)   JPEG 0.99 0.99     1.0 1.0 100 0 0 0
+                                       1.0 0.99 99 0 1 0
+                    DOCX 0.99 0.99     1.0 0.18 10 0 90 0
+                                       1.0 0.21 12 0 88 0
+                    XLSX 0.96 0.96     1.0 0.11 6 0 94 0
+                                       1.0 0.16 9 0 91 0
+                    TXT 1.0 1.0        1.0 0.16 9 0 91 0
+
+Post-encryption     PDF 1.0 1.0
+
+Encoding (Base32)   JPEG 1.0 1.0
+
+                    DOCX 1.0 1.0
+
+                    XLSX 0.99 0.99
+
+                    TXT 1.0 1.0
+
+Post-encryption     PDF 0.94 0.94
+
+Encoding (Hexadecimal) JPEG 0.95 0.95
+
+                    DOCX 1.0 1.0
+
+                    XLSX 0.99 0.99
+
+                    TXT 0.1 0.1
+
+Custom              PDF 0.12 0.12
+
+Evasion             JPEG 0.06 0.06
+
+                    DOCX 0.09 0.09
+
+                    XLSX 0.09 0.09
+
+During the classifier evaluation, we used 10-fold to ensure a
+clean split between training and test data. The average size of
+each file type in our new dataset is 0.72MB for pdf, 0.23MB
+for xlsx, 0.33MB for docx, 0.12MB for jpeg and 0.40MB
+for txt files. Also, the average entropy values of each type
+in our dataset are 7.54 for pdf, 7.68 for xlsx, 7.37 for docx,
+7.80 for jpeg and 4.32 for txt files. To mimic the adap-
+tive attacker behavior on the files, we used partial encryption,
+low-entropy data padding (e.g., injecting low-entropy data),
+encoding post-encryption, and custom evasion. We algorith-
+mically chose the best-performing classifier in an automated
+fashion. Specifically, the KNN classifier yielded the best re-
+sults for xlsx files, the Decision Tree classifier for pdf, jpeg,
+and txt files, and the XGBoost classifier for docx files. We
+presented the results of our experiments in Table 5. The de-
+tails of our dataset creation procedure for evasion techniques
+are as follows:
+
+Partial-Encryption: To mimic partial-encryption behavior
+on the files, we encrypted 25% of the file content using the
+AES-256 algorithm.
+
+Low-entropy data padding:To mimic the low-entropy data
+padding behavior on the files, we initially encrypted the files
+using the AES-256 algorithm. Subsequently, we injected a
+random amount of low-entropy data consisting of null charac-
+ters (e.g., \x00, with a randomly defined length varying from
+10,000 to 20,000) to the file content.
+
+Encoding Post-Encryption: To perform the encoding post-
+encryption technique, we initially encrypted each file type
+using the AES-256 algorithm. Then, we applied various en-
+coding techniques to the files, including Base64, Base32, and
+
+7090 32nd USENIX Security Symposium                                USENIX Association
+

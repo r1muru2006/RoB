@@ -39,8 +39,7 @@ def aes_encrypt_custom_evasion(data: bytes, target_entropy: float, target_size: 
     current_size = len(encrypted)
     if current_size < target_size:
         pad_len = target_size - current_size
-        low_entropy_pad = bytes([0x00, 0x01, 0x02, 0x03] * (pad_len // 4 + 1))[:pad_len]
-        encrypted = encrypted + low_entropy_pad
+        encrypted = encrypted + b'\x00' * pad_len
     elif current_size > target_size:
         encrypted = encrypted[:target_size]
     return encrypted
