@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+function refresh() {
   chrome.storage.local.get(
     ["alerts", "blockedCount", "allowedCount", "settings"],
     (data) => {
@@ -6,13 +6,26 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("allowedCount").textContent = data.allowedCount || 0;
 
       const settings = data.settings || {};
-      document.getElementById("entropyThreshold").value = settings.entropyThreshold || 3.0;
-      document.getElementById("sizeThreshold").value =
-        (settings.sizeChangeThreshold || 0.05) * 100;
+      const entInput = document.getElementById("entropyThreshold");
+      const sizeInput = document.getElementById("sizeThreshold");
+      if (document.activeElement !== entInput) {
+        entInput.value = settings.entropyThreshold ?? 3.0;
+      }
+      if (document.activeElement !== sizeInput) {
+        sizeInput.value = (settings.sizeChangeThreshold ?? 0.05) * 100;
+      }
 
       renderAlerts(data.alerts || []);
     }
   );
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  refresh();
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local") refresh();
+  });
 
   document.getElementById("saveSettings").addEventListener("click", () => {
     const entropyThreshold = parseFloat(

@@ -12,6 +12,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("[RoB BG] received message:", message);
   if (message.type === "ROB_ALERT") {
     chrome.storage.local.get(["alerts", "blockedCount"], (data) => {
       const alerts = data.alerts || [];
@@ -28,6 +29,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const update = { alerts };
       if (message.action === "blocked") {
         update.blockedCount = (data.blockedCount || 0) + 1;
+      } else if (message.action === "allowed_by_user") {
+        chrome.storage.local.get(["allowedCount"], (d2) => {
+          chrome.storage.local.set({
+            ...update,
+            allowedCount: (d2.allowedCount || 0) + 1,
+          });
+        });
+        return;
       }
 
       chrome.storage.local.set(update);

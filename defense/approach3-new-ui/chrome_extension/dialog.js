@@ -1,6 +1,11 @@
 /**
  * Dialog rendering and interaction logic for enhanced permission dialogs.
  * Creates and manages the custom permission warning overlays.
+ *
+ * IMPORTANT: showDialog accepts an optional `onAllow` callback that is invoked
+ * SYNCHRONOUSLY in the Allow button's click handler. This is required so that
+ * the FSA picker call inherits the click's transient user activation —
+ * otherwise Chrome rejects the picker call with a SecurityError.
  */
 
 const RoBDialog = (() => {
@@ -88,8 +93,17 @@ const RoBDialog = (() => {
     `;
   }
 
-  function showDialog(type, siteName, directoryName, fileList) {
-    return new Promise((resolve) => {
+  /**
+   * @param {string} type - 'read' or 'write'
+   * @param {string} siteName
+   * @param {string} directoryName
+   * @param {string[]|null} fileList
+   * @param {Function} [onAllow] - synchronous callback invoked from the Allow
+   *   button's click handler. Its return value (or thrown error) is forwarded
+   *   to the resolved promise as `result.allowResult` / rejection.
+   */
+  function showDialog(type, siteName, directoryName, fileList, onAllow) {
+    return new Promise((resolve, reject) => {
       const startTime = Date.now();
 
       const html = type === 'read'
@@ -116,17 +130,33 @@ const RoBDialog = (() => {
         });
       }
 
-      function cleanup(decision) {
+      function finalize(decision, allowResult, error) {
         const elapsed = Date.now() - startTime;
         container.remove();
-        resolve({ decision, decisionTimeMs: elapsed });
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ decision, decisionTimeMs: elapsed, allowResult });
+        }
       }
 
-      cancelBtn.addEventListener('click', () => cleanup('deny'));
-      allowBtn.addEventListener('click', () => cleanup('allow'));
+      cancelBtn.addEventListener('click', () => finalize('deny'));
+
+      allowBtn.addEventListener('click', () => {
+        let allowResult;
+        if (typeof onAllow === 'function') {
+          try {
+            allowResult = onAllow();
+          } catch (err) {
+            finalize('allow', undefined, err);
+            return;
+          }
+        }
+        finalize('allow', allowResult);
+      });
 
       overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) cleanup('deny');
+        if (e.target === overlay) finalize('deny');
       });
     });
   }
