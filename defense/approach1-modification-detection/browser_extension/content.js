@@ -12,14 +12,14 @@
 
   const fileCache = new Map();
   let monitoredDir = null;
-  let currentSettings = { entropyThreshold: 3.0, sizeChangeThreshold: 0.05 };
+  let currentSettings = { entropyThreshold: 0.3, sizeChangeThreshold: 0.05 };
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
     const d = event.data;
     if (d && d.source === "rob-defender-bridge" && d.type === "SETTINGS") {
       currentSettings = {
-        entropyThreshold: d.settings.entropyThreshold ?? 3.0,
+        entropyThreshold: d.settings.entropyThreshold ?? 0.3,
         sizeChangeThreshold: d.settings.sizeChangeThreshold ?? 0.05,
       };
     }
@@ -110,9 +110,10 @@
       if (writeBuffer && fileCache.has(fileName)) {
         const originalData = fileCache.get(fileName);
         const analysis = detector.analyzeModification(originalData, writeBuffer);
-        const malicious = detector.isMalicious(analysis, currentSettings);
+        const malicious = detector.isMalicious(analysis, currentSettings, fileName);
+        const usedThreshold = detector.thresholdFor(fileName, currentSettings.entropyThreshold);
         console.log(
-          `[RoB Defender] analyzed "${fileName}": entropy_change=${analysis.entropyChange.toFixed(3)} size_change=${(analysis.sizeChange * 100).toFixed(2)}% → malicious=${malicious}`
+          `[RoB Defender] analyzed "${fileName}": entropy_change=${analysis.entropyChange.toFixed(3)} (threshold=${usedThreshold}) size_change=${(analysis.sizeChange * 100).toFixed(2)}% → malicious=${malicious}`
         );
 
         if (malicious) {
@@ -125,7 +126,7 @@
           const userChoice = confirm(
             `[RoB Defender] WARNING!\n\n` +
               `Potentially malicious modification detected on "${fileName}".\n\n` +
-              `Entropy change: ${analysis.entropyChange.toFixed(2)} (threshold: ${currentSettings.entropyThreshold})\n` +
+              `Entropy change: ${analysis.entropyChange.toFixed(2)} (threshold: ${usedThreshold})\n` +
               `Size change: ${(analysis.sizeChange * 100).toFixed(2)}% (threshold: ${(currentSettings.sizeChangeThreshold * 100).toFixed(0)}%)\n\n` +
               `This pattern is consistent with ransomware encryption.\n\n` +
               `Click OK to BLOCK the write, or Cancel to allow it.`
