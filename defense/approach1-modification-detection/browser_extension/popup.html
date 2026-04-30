@@ -28,19 +28,48 @@
       <input type="number" id="entropyThreshold" step="0.05" value="0.3">
     </div>
     <div class="setting-row">
-      <label for="sizeThreshold">Size change threshold (%):</label>
-      <input type="number" id="sizeThreshold" step="1" value="5">
+      <label for="sizeThreshold">Default size change (%):</label>
+      <input type="number" id="sizeThreshold" step="0.5" value="1">
     </div>
     <button id="saveSettings">Save Settings</button>
     <details class="threshold-table">
-      <summary>Per-file-type thresholds (from paper)</summary>
+      <summary>Per-file-type thresholds &amp; reference data</summary>
+
+      <p class="threshold-note">
+        Paper §6.1 measured Δ entropy and Δ size on 1,000,000 modifications
+        (500K benign + 500K malicious) across 5,000 files of 5 file types.
+        Encryption barely changes file size (AES only adds a small fixed
+        overhead) but dramatically raises entropy for low-entropy formats.
+        Already-compressed formats (xlsx, pdf, jpeg) start near max entropy,
+        so the encryption signal is much weaker there.
+      </p>
+
+      <h3>Reference Δ from paper</h3>
       <table>
-        <tr><th>Type</th><th>Entropy Δ</th><th>Note</th></tr>
-        <tr><td>txt / md / csv / json / html</td><td>1.0</td><td>txt encryption Δ ≈ 3.5</td></tr>
-        <tr><td>docx / jpeg / jpg / png</td><td>0.3</td><td>encryption Δ ≈ 0.6</td></tr>
-        <tr><td>xlsx / pdf</td><td>0.08</td><td>encryption Δ ≈ 0.10 (hard)</td></tr>
-        <tr><td>other</td><td>= default</td><td>uses value above</td></tr>
+        <tr><th>Type</th><th>Benign Δ entropy</th><th>Encryption Δ entropy</th><th>Benign Δ size</th><th>Encryption Δ size</th></tr>
+        <tr><td>txt</td><td>≈ 0.05</td><td><strong>≈ 3.50</strong></td><td>≈ 15%</td><td>≈ 0.002%</td></tr>
+        <tr><td>docx</td><td>≈ 0.05</td><td><strong>≈ 0.60</strong></td><td>≈ 15%</td><td>≈ 0.012%</td></tr>
+        <tr><td>jpeg</td><td>≈ 0.05</td><td><strong>≈ 0.60</strong></td><td>≈ 15%</td><td>≈ 0.14%</td></tr>
+        <tr><td>xlsx</td><td>≈ 0.05</td><td>≈ 0.10</td><td>≈ 15%</td><td>≈ 0.06%</td></tr>
+        <tr><td>pdf</td><td>—</td><td>≈ 0.10</td><td>—</td><td>≈ 0.006%</td></tr>
       </table>
+
+      <h3>Thresholds used by this extension</h3>
+      <table>
+        <tr><th>Type</th><th>Entropy Δ &gt;</th><th>Size Δ &lt;</th></tr>
+        <tr><td>txt / md / csv / json / html</td><td>1.0</td><td>1%</td></tr>
+        <tr><td>docx</td><td>0.3</td><td>1%</td></tr>
+        <tr><td>jpeg / jpg / png</td><td>0.3</td><td>2%</td></tr>
+        <tr><td>xlsx / pdf</td><td>0.08</td><td>1%</td></tr>
+        <tr><td>other</td><td>= default above</td><td>= default above</td></tr>
+      </table>
+
+      <p class="threshold-note">
+        Detection rule: a write is flagged when <strong>entropy Δ exceeds the
+        threshold AND size Δ stays below it</strong>. Both conditions must
+        hold — this is what makes encryption distinguishable from benign
+        edits, which usually shift size by ~15% with negligible entropy gain.
+      </p>
     </details>
   </div>
 

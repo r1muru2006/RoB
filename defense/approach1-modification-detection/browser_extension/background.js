@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
     allowedCount: 0,
     settings: {
       entropyThreshold: 0.3,
-      sizeChangeThreshold: 0.05,
+      sizeChangeThreshold: 0.01,
       autoBlock: false,
     },
   });
