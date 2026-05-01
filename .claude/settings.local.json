@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(python -c \"import pypdf; print\\(pypdf.__version__\\)\")",
+      "Bash(pdftotext -layout D:/RoB/usenixsecurity23-oz.pdf D:/RoB/paper.txt)"
+    ]
+  }
+}
