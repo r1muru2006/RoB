@@ -19,6 +19,7 @@
   const trackedDirs = new Map();
 
   function reportDecision(payload) {
+    console.log('[RoB UI] reporting decision to bridge:', payload);
     window.postMessage({ source: 'rob-ui-bridge', ...payload }, '*');
   }
 
@@ -37,7 +38,7 @@
 
     reportDecision({
       type: 'PERMISSION_DECISION',
-      permissionType: 'read',
+      permissionType: type,
       decision: result.decision,
       decisionTimeMs: result.decisionTimeMs,
       directoryName: dirLabel,

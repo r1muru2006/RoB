@@ -14,22 +14,16 @@ window.addEventListener("message", (event) => {
   console.log("[RoB Bridge] received from MAIN world:", data);
 
   if (data.type === "ROB_ALERT") {
-    chrome.runtime.sendMessage(
-      {
+    chrome.runtime
+      .sendMessage({
         type: "ROB_ALERT",
         filename: data.filename,
         entropyChange: data.entropyChange,
         sizeChange: data.sizeChange,
         action: data.action,
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.error("[RoB Bridge] sendMessage error:", chrome.runtime.lastError.message);
-        } else {
-          console.log("[RoB Bridge] forwarded ROB_ALERT to background");
-        }
-      }
-    );
+      })
+      .then(() => console.log("[RoB Bridge] forwarded ROB_ALERT to background"))
+      .catch((err) => console.error("[RoB Bridge] sendMessage error:", err));
   }
 });
 

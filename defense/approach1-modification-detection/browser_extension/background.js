@@ -11,46 +11,56 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+async function handleAlert(message, sender) {
+  const data = await chrome.storage.local.get([
+    "alerts",
+    "blockedCount",
+    "allowedCount",
+  ]);
+
+  const alerts = data.alerts || [];
+  alerts.unshift({
+    timestamp: new Date().toISOString(),
+    url: sender.tab?.url || "unknown",
+    filename: message.filename,
+    entropyChange: message.entropyChange,
+    sizeChange: message.sizeChange,
+    action: message.action,
+  });
+  if (alerts.length > 100) alerts.length = 100;
+
+  const update = { alerts };
+  if (message.action === "blocked") {
+    update.blockedCount = (data.blockedCount || 0) + 1;
+  } else if (message.action === "allowed_by_user") {
+    update.allowedCount = (data.allowedCount || 0) + 1;
+  }
+
+  await chrome.storage.local.set(update);
+  console.log("[RoB BG] persisted alert; counters:", {
+    blocked: update.blockedCount ?? data.blockedCount ?? 0,
+    allowed: update.allowedCount ?? data.allowedCount ?? 0,
+  });
+
+  if (sender.tab?.id) {
+    chrome.action.setBadgeText({ text: "!", tabId: sender.tab.id });
+    chrome.action.setBadgeBackgroundColor({
+      color: "#e53e3e",
+      tabId: sender.tab.id,
+    });
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("[RoB BG] received message:", message);
   if (message.type === "ROB_ALERT") {
-    chrome.storage.local.get(["alerts", "blockedCount"], (data) => {
-      const alerts = data.alerts || [];
-      alerts.unshift({
-        timestamp: new Date().toISOString(),
-        url: sender.tab?.url || "unknown",
-        filename: message.filename,
-        entropyChange: message.entropyChange,
-        sizeChange: message.sizeChange,
-        action: message.action,
+    handleAlert(message, sender)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => {
+        console.error("[RoB BG] handleAlert error:", err);
+        sendResponse({ ok: false, error: String(err) });
       });
-      if (alerts.length > 100) alerts.length = 100;
-
-      const update = { alerts };
-      if (message.action === "blocked") {
-        update.blockedCount = (data.blockedCount || 0) + 1;
-      } else if (message.action === "allowed_by_user") {
-        chrome.storage.local.get(["allowedCount"], (d2) => {
-          chrome.storage.local.set({
-            ...update,
-            allowedCount: (d2.allowedCount || 0) + 1,
-          });
-        });
-        return;
-      }
-
-      chrome.storage.local.set(update);
-    });
-
-    if (sender.tab?.id) {
-      chrome.action.setBadgeText({ text: "!", tabId: sender.tab.id });
-      chrome.action.setBadgeBackgroundColor({ color: "#e53e3e", tabId: sender.tab.id });
-    }
+    return true; // keep the message channel open for async sendResponse
   }
-
-  if (message.type === "ROB_ALLOWED") {
-    chrome.storage.local.get(["allowedCount"], (data) => {
-      chrome.storage.local.set({ allowedCount: (data.allowedCount || 0) + 1 });
-    });
-  }
+  return false;
 });
