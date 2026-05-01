@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RØB - Ransomware Simulation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Enigma Encryption Module</h1>
+            <p>Phase 4: AES-256-GCM & FSA Simulation</p>
+        </header>
+
+        <main>
+            <!-- Module 3: CyberChef-like Single File Encryption -->
+            <section class="panel">
+                <h2>1. Single File Encryption (Preview)</h2>
+                <p>Select a file to preview its AES-256-GCM encrypted content (Hex/Raw).</p>
+                <div class="input-group">
+                    <input type="file" id="singleFileInput" />
+                </div>
+                <div class="controls">
+                    <button id="btnEncryptSingle" class="btn">Encrypt File</button>
+                    <select id="outputFormat" class="select">
+                        <option value="hex">Hex Output</option>
+                        <option value="raw">Raw (Base64) Output</option>
+                    </select>
+                </div>
+                <div class="output-group">
+                    <label for="singleFileOutput">Encrypted Output:</label>
+                    <textarea id="singleFileOutput" readonly placeholder="Output will appear here..."></textarea>
+                </div>
+            </section>
+
+            <!-- Module 4: FSA API Loop & Benchmark -->
+            <section class="panel danger-panel">
+                <h2>2. RØB Benchmark & Directory Attack</h2>
+                <p>Select a directory. The system will recursively find target files (docx, xlsx, pdf, txt, jpeg, png), encrypt them using AES-256-GCM, wrap the key in RSA-2048, and overwrite the original files via the FSA API.</p>
+                
+                <div class="benchmark-controls">
+                    <button id="btnBenchmark" class="btn btn-warning">Run Speed Benchmark (1MB, 10MB, 100MB)</button>
+                    <button id="btnEncryptDir" class="btn btn-danger">Encrypt Directory (FSA Attack)</button>
+                </div>
+
+                <div class="log-group">
+                    <label>Action Log & Benchmark Results:</label>
+                    <div id="actionLog" class="terminal-log"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/encryption/memory.js"></script>
+    <script src="js/encryption/rsa.js"></script>
+    <script src="js/encryption/aes.js"></script>
+    <script src="js/fsa.js"></script>
+    <script src="js/extortion.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
