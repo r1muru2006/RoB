@@ -3,8 +3,8 @@
 Test classifiers against evasion techniques.
 Matches paper Table 5 format — evaluation against adaptive attackers.
 
-For each evasion technique, algorithmically selects the best classifier per file type
-and reports Accuracy, Recall, Precision, F1, TP, TN, FN, FP.
+For each evasion technique, uses saved models + scalers and selects the best
+classifier per file type. Reports Accuracy, Recall, Precision, F1, TP, TN, FN, FP.
 """
 
 import sys
@@ -21,6 +21,9 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "classifier" / "models"
 
 FILE_TYPES = ["txt", "pdf", "docx", "xlsx", "jpeg"]
 CLASSIFIER_NAMES = ["RF", "KNN", "DT", "XGB"]
+
+FEATURE_COLS = ["entropy_change", "size_change", "entropy_modified",
+                "chi2_uniformity", "header_preserved"]
 
 TECHNIQUE_DISPLAY = {
     "partial_encryption": "Partial Encryption",
@@ -40,12 +43,12 @@ def main():
     le.fit(["benign", "malicious"])
     train_df["label_enc"] = le.transform(train_df["label"])
 
-    print("\n" + "=" * 100)
+    print("\n" + "=" * 110)
     print("Table 5: Evaluation against adaptive attackers")
-    print("=" * 100)
-    print(f"{'Technique':<38} {'Type':<8} {'Acc':>6} {'Recall':>8} {'Prec':>8} "
+    print("=" * 110)
+    print(f"{'Technique':<38} {'Type':<8} {'Best':<6} {'Acc':>6} {'Recall':>8} {'Prec':>8} "
           f"{'F1':>8} {'TP':>6} {'TN':>6} {'FN':>6} {'FP':>6}")
-    print("-" * 100)
+    print("-" * 110)
 
     techniques = evasion_df["technique"].unique()
 
@@ -54,20 +57,16 @@ def main():
 
         for ft in FILE_TYPES:
             train_ft = train_df[train_df["file_type"] == ft]
-            X_train = train_ft[["entropy_change", "size_change"]].values
-            y_train = train_ft["label_enc"].values
 
             ev_ft = evasion_df[(evasion_df["technique"] == tech) & (evasion_df["file_type"] == ft)]
-            X_evasion = ev_ft[["entropy_change", "size_change"]].values
+            X_evasion = ev_ft[FEATURE_COLS].values
 
             benign_test = train_ft[train_ft["label"] == "benign"].sample(
                 n=min(len(ev_ft), len(train_ft[train_ft["label"] == "benign"])),
                 random_state=42
             )
-            X_test = np.vstack([
-                benign_test[["entropy_change", "size_change"]].values,
-                X_evasion
-            ])
+            X_benign = benign_test[FEATURE_COLS].values
+            X_test = np.vstack([X_benign, X_evasion])
             y_test = np.array([0] * len(benign_test) + [1] * len(ev_ft))
 
             best_f1 = -1
@@ -76,11 +75,14 @@ def main():
 
             for clf_name in CLASSIFIER_NAMES:
                 model_path = MODELS_DIR / f"{clf_name}_{ft}.joblib"
-                if not model_path.exists():
+                scaler_path = MODELS_DIR / f"{clf_name}_{ft}_scaler.joblib"
+                if not model_path.exists() or not scaler_path.exists():
                     continue
 
                 clf = joblib.load(model_path)
-                y_pred = clf.predict(X_test)
+                scaler = joblib.load(scaler_path)
+                X_test_sc = scaler.transform(X_test)
+                y_pred = clf.predict(X_test_sc)
 
                 tp = int(np.sum((y_test == 1) & (y_pred == 1)))
                 tn = int(np.sum((y_test == 0) & (y_pred == 0)))
@@ -103,11 +105,11 @@ def main():
 
             if best_result:
                 r = best_result
-                print(f"{tech_display:<38} {ft:<8} {r['acc']:>6.2f} {r['recall']:>8.2f} "
+                print(f"{tech_display:<38} {ft:<8} {best_clf_name:<6} {r['acc']:>6.2f} {r['recall']:>8.2f} "
                       f"{r['prec']:>8.2f} {r['f1']:>8.2f} {r['tp']:>6} {r['tn']:>6} "
                       f"{r['fn']:>6} {r['fp']:>6}")
 
-        print("-" * 100)
+        print("-" * 110)
 
     print("\n[+] Note: Best classifier per file type selected automatically (as in paper Appendix D)")
 

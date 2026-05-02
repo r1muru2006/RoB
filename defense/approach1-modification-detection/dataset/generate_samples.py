@@ -24,12 +24,16 @@ import shutil
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from shared.crypto_utils import aes_encrypt
+from shared.crypto_utils import (
+    aes_encrypt, aes_encrypt_partial, aes_encrypt_with_padding,
+    aes_encrypt_with_encoding, aes_encrypt_custom_evasion,
+)
 
 SAMPLES_DIR = Path(__file__).resolve().parent / "samples"
 FILE_TYPES = ["txt", "pdf", "docx", "xlsx", "jpeg"]
 NUM_ORIGINALS = 50
 BENIGN_MODS_PER_FILE = 50
+MALICIOUS_MODS_PER_FILE = 50
 WORD_POOL = None
 
 
@@ -275,6 +279,17 @@ def main():
         (SAMPLES_DIR / "benign" / ft).mkdir(parents=True, exist_ok=True)
         (SAMPLES_DIR / "malicious" / ft).mkdir(parents=True, exist_ok=True)
 
+    malicious_techniques = [
+        ("full", lambda d: aes_encrypt(d)),
+        ("partial25", lambda d: aes_encrypt_partial(d, 0.25)),
+        ("partial50", lambda d: aes_encrypt_partial(d, 0.50)),
+        ("partial75", lambda d: aes_encrypt_partial(d, 0.75)),
+        ("pad", lambda d: aes_encrypt_with_padding(d, 5000, 15000)),
+        ("b64", lambda d: aes_encrypt_with_encoding(d, 'base64')),
+        ("b32", lambda d: aes_encrypt_with_encoding(d, 'base32')),
+        ("hex", lambda d: aes_encrypt_with_encoding(d, 'hex')),
+    ]
+
     for ft in FILE_TYPES:
         gen_orig, mod_remove, mod_add, ext = GENERATORS[ft]
         print(f"[*] Generating {ft} samples...")
@@ -301,9 +316,17 @@ def main():
                 except Exception:
                     pass
 
-            enc_data = aes_encrypt(orig_data)
-            enc_path = SAMPLES_DIR / "malicious" / ft / f"{ft}_{i:04d}_enc{ext}"
-            enc_path.write_bytes(enc_data)
+            mal_count = 0
+            for tech_name, tech_fn in malicious_techniques:
+                reps = max(1, MALICIOUS_MODS_PER_FILE // len(malicious_techniques))
+                for j in range(reps):
+                    try:
+                        enc_data = tech_fn(orig_data)
+                        enc_path = SAMPLES_DIR / "malicious" / ft / f"{ft}_{i:04d}_{tech_name}_{j:03d}{ext}"
+                        enc_path.write_bytes(enc_data)
+                        mal_count += 1
+                    except Exception:
+                        pass
 
             if (i + 1) % 10 == 0:
                 print(f"    {ft}: {i+1}/{NUM_ORIGINALS} originals done")

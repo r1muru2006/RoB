@@ -179,6 +179,13 @@ def generate_rob_fs_activities(variant, num_files=100):
         events.extend(["OPEN", "ACCESS", "MODIFY", "CLOSE_WRITE"])
         events.extend(["CREATE", "MODIFY", "CLOSE_WRITE"])
         events.extend(["MOVED_FROM", "MOVED_TO"])
+
+        if variant == "RoBWithBenign":
+            if random.random() < 0.3:
+                events.extend(["OPEN", "MODIFY", "CLOSE_WRITE"])
+        if variant == "RoBWithBenAPI":
+            if random.random() < 0.2:
+                events.extend(["OPEN", "ACCESS", "CLOSE_NOWRITE"])
     return events
 
 
