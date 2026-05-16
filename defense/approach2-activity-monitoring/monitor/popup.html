@@ -128,40 +128,6 @@
   <div class="footer">
     <p>N-gram analysis | Cosine similarity | Based on USENIX Security 2023</p>
   </div>
-
-  <script>
-    chrome.storage.local.get(
-      ["alerts", "totalApiCalls", "activityLog"],
-      (data) => {
-        const alerts = data.alerts || [];
-        const total = data.totalApiCalls || 0;
-        const log = data.activityLog || [];
-
-        document.getElementById("totalCalls").textContent = total;
-        document.getElementById("alertCount").textContent = alerts.length;
-        document.getElementById("tabCount").textContent = log.length;
-
-        if (alerts.length > 0) {
-          const bar = document.getElementById("statusBar");
-          bar.className = "status danger";
-          bar.textContent = `WARNING: ${alerts.length} ransomware pattern(s) detected!`;
-
-          const container = document.getElementById("alertList");
-          container.innerHTML = alerts
-            .slice(0, 10)
-            .map((a) => {
-              const time = new Date(a.timestamp).toLocaleString();
-              return `
-                <div class="alert-item">
-                  <div class="title">Ransomware Pattern Detected (${(a.similarity * 100).toFixed(1)}% match)</div>
-                  <div class="detail">${a.url}</div>
-                  <div class="detail">${time} | ${a.callCount} API calls in window</div>
-                </div>`;
-            })
-            .join("");
-        }
-      }
-    );
-  </script>
+  <script src="popup.js"></script>
 </body>
 </html>

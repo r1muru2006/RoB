@@ -19,6 +19,16 @@
   let lastAnalysisTime = 0;
   const ANALYSIS_INTERVAL = 2000;
 
+  function sendToExtension(message) {
+    window.postMessage(
+      {
+        source: "rob-activity-monitor",
+        ...message,
+      },
+      "*"
+    );
+  }
+
   function record(fnName) {
     callHistory.push({ fn: fnName, ts: Date.now() });
     if (callHistory.length > WINDOW_SIZE * 2) {
@@ -62,7 +72,6 @@
     const currentPattern = computeNgrams(recentCalls, 2);
     const similarity = cosineSimilarity(currentPattern, MALICIOUS_PATTERN);
 
-    const uniqueFiles = new Set();
     let getFileCount = 0;
     for (const call of recentCalls) {
       if (call === "getFile") getFileCount++;
@@ -79,33 +88,19 @@
         `getFile calls: ${getFileCount}`
       );
 
-      try {
-        chrome.runtime?.sendMessage({
-          type: "RANSOMWARE_ALERT",
-          similarity,
-          pattern: currentPattern,
-          callCount: recentCalls.length,
-        });
-      } catch (e) {}
-
-      window.postMessage(
-        {
-          source: "rob-activity-monitor",
-          type: "ransomware-detected",
-          similarity,
-          callCount: recentCalls.length,
-        },
-        "*"
-      );
+      sendToExtension({
+        type: "RANSOMWARE_ALERT",
+        similarity,
+        pattern: currentPattern,
+        callCount: recentCalls.length,
+      });
     }
 
-    try {
-      chrome.runtime?.sendMessage({
-        type: "ACTIVITY_LOG",
-        calls: recentCalls.slice(-10),
-        analysis: { similarity, getFileCount, isRansomwareLike },
-      });
-    } catch (e) {}
+    sendToExtension({
+      type: "ACTIVITY_LOG",
+      calls: recentCalls.slice(-10),
+      analysis: { similarity, getFileCount, isRansomwareLike },
+    });
   }
 
   function throttledAnalysis() {

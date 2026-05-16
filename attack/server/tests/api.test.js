@@ -1,19 +1,19 @@
 const request = require('supertest');
-const app = require('../index');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const db = require('../db/database');
 
-const DB_FILE = path.join(__dirname, '../db/victims.json');
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rob-api-test-'));
+process.env.ROB_DB_FILE = path.join(tempDir, 'victims.json');
+
+const app = require('../index');
+const db = require('../db/database');
 
 describe('Ransomware Backend API', () => {
     let testVictimId;
 
-    beforeAll(() => {
-        // Clear DB for tests
-        if (fs.existsSync(DB_FILE)) {
-            fs.writeFileSync(DB_FILE, JSON.stringify([]));
-        }
+    afterAll(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('POST /api/register should return a victimId and public key', async () => {
@@ -28,13 +28,6 @@ describe('Ransomware Backend API', () => {
     });
 
     it('GET /api/ransom/:victimId should return the ransom note HTML', async () => {
-        // We mock the html file so the test passes without the actual views dir
-        const viewsDir = path.join(__dirname, '../views');
-        if (!fs.existsSync(viewsDir)) {
-            fs.mkdirSync(viewsDir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(viewsDir, 'ransom.html'), '<html>{{VICTIM_ID}}</html>');
-
         const res = await request(app).get(`/api/ransom/${testVictimId}`);
         
         expect(res.statusCode).toEqual(200);

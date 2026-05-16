@@ -7,6 +7,23 @@ const db = require('../db/database');
 
 const router = express.Router();
 
+function isLocalDemoRequest(req) {
+    if (process.env.ALLOW_UNSAFE_DEMO === 'true') {
+        return true;
+    }
+
+    const host = req.hostname;
+    const remoteAddress = req.ip || req.socket?.remoteAddress || '';
+    const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+    return (
+        localHosts.has(host) ||
+        remoteAddress === '::1' ||
+        remoteAddress === '127.0.0.1' ||
+        remoteAddress === '::ffff:127.0.0.1'
+    );
+}
+
 /**
  * POST /api/register
  * Called when the victim's browser initiates the attack.
@@ -65,6 +82,12 @@ router.get('/ransom/:victimId', (req, res) => {
  * Simulates payment verification.
  */
 router.post('/decrypt-key/:victimId', (req, res) => {
+    if (!isLocalDemoRequest(req)) {
+        return res.status(403).json({
+            error: "Private key release is restricted to local demo requests"
+        });
+    }
+
     const victim = db.getVictim(req.params.victimId);
 
     if (!victim) {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_FILE = path.join(__dirname, 'victims.json');
+const DB_FILE = process.env.ROB_DB_FILE || path.join(__dirname, 'victims.json');
 
 /**
  * Ensures the DB file exists.
