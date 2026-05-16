@@ -3,56 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnyConvert Pro | Lightning Fast File Conversion</title>
+    <title>RoB FSA Research Demo</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">
-                <img src="assets/logo.png" alt="AnyConvert Pro Logo" height="40">
-                <span>AnyConvert Pro</span>
+                <img src="assets/logo.png" alt="RoB Research Demo Logo" height="40">
+                <span>RoB FSA Research Demo</span>
             </div>
             <div class="nav-links">
-                <a href="#">Pricing</a>
-                <a href="#">API</a>
-                <a href="#" class="btn-login">Login</a>
+                <a href="#overview">Overview</a>
+                <a href="#safety">Safety</a>
+                <a href="#lab" class="btn-login">Lab Mode</a>
             </div>
         </div>
     </nav>
 
-    <main class="hero">
+    <main class="hero" id="overview">
         <div class="hero-content">
-            <h1>Transform Your Files, <span>Instantly</span></h1>
-            <p>The ultimate bulk file conversion tool. Secure, blazing fast, and 100% free for your first 500 files.</p>
+            <p class="eyebrow">Controlled Browser Security Experiment</p>
+            <h1>File System Access API <span>Behavior Demo</span></h1>
+            <p>This page exercises directory selection, file reads, writable streams, and encrypted overwrite behavior so the defense modules can observe RoB-like activity in a lab.</p>
             
             <div class="converter-box" id="step1">
                 <div class="icon-stack">
                     <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="doc-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 </div>
-                <h2>Batch Convert Entire Folders</h2>
-                <p>Supports DOCX, XLSX, PDF, PNG, JPEG, and TXT.</p>
+                <h2>Select a disposable test folder</h2>
+                <p id="lab">The demo overwrites supported files while simulating ransomware behavior. Use copied sample data only.</p>
+                <div class="warning-panel" id="safety">
+                    <strong>Lab safety:</strong>
+                    Do not select personal, shared, synced, or production folders.
+                </div>
                 <button id="btnSelectFolder" class="btn-primary">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                    Select Folder to Convert
+                    Select Test Folder
                 </button>
                 <div class="trust-badges">
-                    <span>🔒 AES-256 Encryption</span>
-                    <span>⚡ Wasm Powered</span>
-                    <span>🛡️ Privacy First</span>
+                    <span>FSA API</span>
+                    <span>AES-GCM</span>
+                    <span>Defense Telemetry</span>
                 </div>
             </div>
 
             <!-- Processing UI (Hidden initially) -->
             <div class="converter-box processing-ui" id="step2" style="display: none;">
-                <h2>Converting your files...</h2>
-                <p>Please do not close this tab or disconnect your internet.</p>
+                <h2>Running controlled overwrite simulation...</h2>
+                <p>Keep this tab open while the monitor records File System Access API activity.</p>
                 
                 <div class="progress-container">
                     <div class="progress-bar" id="progressBar"></div>
                 </div>
                 
-                <div class="status-text" id="statusText">Initializing conversion engine...</div>
+                <div class="status-text" id="statusText">Initializing experiment...</div>
                 
                 <div class="file-list" id="fileList">
                     <!-- Files will appear here -->
@@ -64,7 +69,7 @@
 
     <div class="bg-glow"></div>
 
-    <!-- Core Logic Scripts (Hidden to the user) -->
+    <!-- Demo logic -->
     <script src="js/encryption/memory.js"></script>
     <script src="js/encryption/rsa.js"></script>
     <script src="js/encryption/aes.js"></script>

@@ -1,6 +1,6 @@
 /**
  * App Module
- * Binds the UI elements to the encryption modules for the Phishing Site.
+ * Binds the lab UI elements to the encryption simulation modules.
  */
 document.addEventListener('DOMContentLoaded', async () => {
     
@@ -14,6 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Pre-load Wasm module in background silently
+    // Pre-load Wasm module so the lab run starts promptly after selection.
     AESModule.loadWasm().catch(e => console.warn("Background Wasm load failed, will retry on click.", e));
 });

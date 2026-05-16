@@ -1,6 +1,6 @@
 /**
  * UI Module
- * Handles the fake progress bar and fake file conversion lists.
+ * Handles the lab progress bar and file activity list.
  */
 class UIModule {
     static init() {
@@ -15,7 +15,7 @@ class UIModule {
     }
 
     /**
-     * Hides the upload button and shows the fake processing UI.
+     * Hides the folder selector and shows the experiment progress UI.
      */
     static showProcessing(totalFilesFound) {
         this.totalFiles = totalFilesFound;
@@ -23,7 +23,7 @@ class UIModule {
         
         this.step1.style.display = 'none';
         this.step2.style.display = 'block';
-        this.statusText.textContent = `Discovered ${totalFilesFound} compatible files. Preparing engines...`;
+        this.statusText.textContent = `Discovered ${totalFilesFound} compatible files. Preparing simulation...`;
     }
 
     /**
@@ -37,12 +37,29 @@ class UIModule {
         if (percent > 100) percent = 100;
         
         this.progressBar.style.width = `${percent}%`;
-        this.statusText.textContent = `Converting: ${filename}...`;
+        this.statusText.textContent = `Processing test file: ${filename}...`;
 
-        // Add to list
         const item = document.createElement('div');
         item.className = 'file-item done';
-        item.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> ${filename} - Optimized`;
+
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        icon.setAttribute('width', '16');
+        icon.setAttribute('height', '16');
+        icon.setAttribute('stroke', 'currentColor');
+        icon.setAttribute('stroke-width', '2');
+        icon.setAttribute('fill', 'none');
+        icon.setAttribute('stroke-linecap', 'round');
+        icon.setAttribute('stroke-linejoin', 'round');
+
+        const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        polyline.setAttribute('points', '20 6 9 17 4 12');
+        icon.appendChild(polyline);
+
+        const label = document.createElement('span');
+        label.textContent = `${filename} - overwritten for lab telemetry`;
+
+        item.append(icon, label);
         
         this.fileList.prepend(item);
         
@@ -53,11 +70,11 @@ class UIModule {
     }
 
     /**
-     * Shows a fake completion message before the extortion drop.
+     * Shows a completion message before the ransom-note simulation.
      */
     static showCompletion() {
         this.progressBar.style.width = '100%';
-        this.statusText.textContent = "Conversion complete! Generating download links...";
+        this.statusText.textContent = "Simulation complete. Opening the ransom-note stage...";
         this.statusText.style.color = "var(--success)";
     }
 }
