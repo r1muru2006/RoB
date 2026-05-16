@@ -50,9 +50,11 @@ Available routes:
 
 ### Client
 
-Open `attack/client/index.html` in a browser that supports the File System
-Access API, such as Chrome or Edge. The page presents itself as a file
-converter and asks for directory access.
+The client must starts on `http://localhost:5500` 
+```bash
+cd attack/client
+python -m http.server 5500
+```
 
 Use only a throwaway folder with copied sample files. The demo overwrites
 supported files during the simulated encryption flow.
