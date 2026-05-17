@@ -1,0 +1,188 @@
+
+Dưới đây là kịch bản slide ngắn gọn cho repo RoB, theo hướng demo nghiên cứu/phòng thủ.
+
+Slide 1: Title
+RoB: Ransomware over Modern Web Browsers
+Mô phỏng tấn công và hệ thống phòng thủ dựa trên File System Access API
+
+Speaker notes:
+Dự án này nghiên cứu cách một trang web có thể lạm dụng File System Access API để đọc, ghi và mã hóa file trong thư mục người dùng đã cấp quyền. Mục tiêu là xây dựng PoC có kiểm soát và các hướng phòng thủ tương ứng.
+
+Slide 2: Problem
+Trình duyệt hiện đại ngày càng có nhiều quyền giống ứng dụng desktop.
+
+Nội dung:
+
+File System Access API cho phép web app đọc/ghi file cục bộ
+Quyền được cấp qua UI permission của trình duyệt
+Nếu người dùng chọn nhầm thư mục, web app độc hại có thể ghi đè nhiều file
+Rủi ro: ransomware chạy trực tiếp trong browser
+Speaker notes:
+Điểm nguy hiểm không nằm ở lỗ hổng memory corruption, mà ở abuse of legitimate capability. API hợp pháp, nhưng luồng UX và hành vi ghi file hàng loạt có thể bị lợi dụng.
+
+Slide 3: Project Scope
+Repo gồm hai phần chính:
+
+Nội dung:
+
+attack/: mô phỏng RoB trong môi trường lab
+defense/: ba hướng phát hiện/phòng thủ
+README.md: hướng dẫn chạy an toàn
+Chỉ dùng với thư mục test, không dùng với dữ liệu thật
+Speaker notes:
+Phần attack không nhằm triển khai mã độc thực tế, mà tạo hành vi để đo lường và kiểm thử defense. Client đã được chỉnh để hiển thị rõ đây là research demo.
+
+Slide 4: Attack Flow
+Luồng mô phỏng:
+
+Nội dung:
+
+User mở trang demo
+Trang gọi showDirectoryPicker()
+Client scan file có extension mục tiêu
+Với từng file: getFile() -> encrypt -> createWritable() -> write() -> close()
+Server tạo victim ID và RSA key
+Trang ransom demo hiển thị victim ID
+Speaker notes:
+Luồng này mô phỏng pattern chính: đọc file, tạo writable stream, ghi payload đã mã hóa, đóng stream, lặp lại nhiều file.
+
+Slide 5: Backend API
+Các endpoint chính:
+
+Nội dung:
+
+POST /api/register
+Tạo victim ID
+Sinh RSA key pair
+Trả public key cho client
+GET /api/ransom/:victimId
+Render ransom note demo
+POST /api/decrypt-key/:victimId
+Giả lập verify payment
+Trả private key trong local demo
+Speaker notes:
+Route trả private key đã được harden ở mức demo: giới hạn local request và CORS local origin để tránh vô tình expose khi chạy ngoài lab.
+
+Slide 6: Defense Overview
+Ba hướng phòng thủ:
+
+Nội dung:
+
+Approach 1: Modification Detection
+Entropy/file size
+ML classifier
+Approach 2: Activity Monitoring
+Theo dõi chuỗi FSA API
+N-gram + cosine similarity
+Approach 3: UI Redesign
+Permission dialog rõ ràng hơn
+Cảnh báo rủi ro thư mục con/file bị ảnh hưởng
+Speaker notes:
+Approach 2 là phần đang active trong extension: hook các API FSA, ghi log call sequence, phân tích realtime.
+
+Slide 7: Approach 2 Architecture
+Kiến trúc monitor realtime:
+
+Nội dung:
+
+realtime_detector.js
+Chạy trong MAIN world
+Hook FSA API prototypes
+Gửi event qua window.postMessage
+bridge.js
+Chạy isolated world
+Validate message
+Forward sang chrome.runtime
+background.js
+Lưu activity log và alerts
+popup.js
+Hiển thị số call, alert, session
+Speaker notes:
+Lý do cần bridge: MAIN world có thể hook API page-visible nhưng không nên gọi trực tiếp extension runtime. Bridge giúp tách phần page context và extension context.
+
+Slide 8: Detection Logic
+Detector dùng sliding window và 2-gram.
+
+Nội dung:
+
+Window size: 50 calls
+Pattern mẫu:
+getFile -> createWritable
+createWritable -> write
+write -> close
+close -> getFile
+Tính cosine similarity
+Alert nếu:
+similarity > threshold
+getFile count đủ cao
+Speaker notes:
+Pattern này bắt hành vi lặp: đọc file, tạo stream ghi, ghi dữ liệu, đóng stream, rồi chuyển sang file tiếp theo. Đây là signature hành vi, không phụ thuộc vào payload cụ thể.
+
+Slide 9: Fixes From Audit
+Các lỗi đã xử lý:
+
+Nội dung:
+
+Popup MV3 không còn inline script
+Bỏ innerHTML với dữ liệu alert
+Thêm bridge.js để forward message an toàn hơn
+Test backend dùng DB tạm, không ghi đè file thật
+CORS và route trả private key giới hạn local demo
+Client demo không còn link sai /README.md
+Speaker notes:
+Các fix này giúp repo ổn định hơn khi demo, tránh lỗi Chrome extension CSP, tránh stored HTML injection trong popup, và tránh test làm bẩn source tree.
+
+Slide 10: Demo Plan
+Kịch bản demo:
+
+Nội dung:
+
+Chạy backend:
+cd attack/server
+npm start
+Serve client từ attack/client
+Load extension Approach 2 trong Chrome
+Mở client demo
+Chọn thư mục test
+Quan sát popup extension hiển thị API calls và alert
+Speaker notes:
+Trước demo cần chuẩn bị thư mục test riêng với file copy. Không chọn Downloads/Documents thật.
+
+Slide 11: Limitations
+Giới hạn hiện tại:
+
+Nội dung:
+
+Detector mới cảnh báo, chưa block write
+Pattern đơn giản, có thể false positive/false negative
+Chưa track unique file identity
+MAIN-world hook vẫn có thể bị page tamper
+Backend chỉ là simulation, không phải production service
+Speaker notes:
+Các giới hạn này là hướng mở rộng tốt: thêm blocking mode, cải thiện feature extraction, đánh giá trên dataset lớn hơn.
+
+Slide 12: Future Work
+Hướng phát triển:
+
+Nội dung:
+
+Blocking mode cho suspicious write
+Track số file unique và tốc độ ghi
+Kết hợp entropy/file-size với activity monitor
+Benchmark trên benign apps thật
+UI warning rõ hơn trước khi cấp quyền thư mục
+Tự động tạo report cho mỗi session
+Speaker notes:
+Điểm thú vị là kết hợp nhiều lớp defense: behavior monitoring, content modification detection và cải tiến UX permission.
+
+Slide 13: Conclusion
+Kết luận:
+
+Nội dung:
+
+RoB là ví dụ của abuse of legitimate browser APIs
+Defense nên dựa vào hành vi, không chỉ payload
+Extension Approach 2 chứng minh khả năng phát hiện realtime
+Demo cần chạy minh bạch, an toàn, trong lab
+Speaker notes:
+Thông điệp chính: càng nhiều capability đưa vào browser, security model càng cần quan sát hành vi và hỗ trợ người dùng ra quyết định tốt hơn.
