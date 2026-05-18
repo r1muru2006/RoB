@@ -59,6 +59,15 @@ python -m http.server 5500
 Use only a throwaway folder with copied sample files. The demo overwrites
 supported files during the simulated encryption flow.
 
+This repo includes a disposable folder for repeatable demos:
+
+```bash
+./scripts/reset_test_folder.sh
+```
+
+Run that command after each encryption run to restore `test_folder/` to clean
+sample files before testing again.
+
 Supported target extensions in the current client:
 
 ```text

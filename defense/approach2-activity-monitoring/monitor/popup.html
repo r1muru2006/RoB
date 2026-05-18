@@ -60,6 +60,29 @@
       margin-bottom: 8px;
       color: #4a5568;
     }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-header h2 {
+      margin-bottom: 0;
+    }
+    .clear-button {
+      border: 1px solid #cbd5e0;
+      background: white;
+      color: #4a5568;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 8px;
+    }
+    .clear-button:hover {
+      background: #edf2f7;
+    }
     .alert-item {
       background: white;
       border-left: 4px solid #e53e3e;
@@ -179,7 +202,10 @@
   </div>
 
   <div class="panel" id="alertsPanel" role="tabpanel">
-    <h2>Detection Alerts</h2>
+    <div class="panel-header">
+      <h2>Detection Alerts</h2>
+      <button class="clear-button" id="clearData" type="button">Clear</button>
+    </div>
     <div id="alertList">
       <div class="no-alerts">No ransomware patterns detected</div>
     </div>

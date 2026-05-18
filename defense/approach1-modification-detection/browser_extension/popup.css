@@ -136,6 +136,16 @@ button:hover {
   background: #2c5282;
 }
 
+.secondary-button {
+  background: white;
+  border: 1px solid #cbd5e0;
+  color: #4a5568;
+}
+
+.secondary-button:hover {
+  background: #edf2f7;
+}
+
 .alerts {
   padding: 12px 16px;
 }

@@ -55,6 +55,12 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Save Settings";
     }, 1500);
   });
+
+  document.getElementById("clearData").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "CLEAR_ROB_DEFENDER" }, () => {
+      refresh();
+    });
+  });
 });
 
 function renderAlerts(alerts) {

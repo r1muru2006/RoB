@@ -1,5 +1,5 @@
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({
+function defaultState(settings = {}) {
+  return {
     alerts: [],
     recentEvents: [],
     blockedCount: 0,
@@ -10,8 +10,20 @@ chrome.runtime.onInstalled.addListener(() => {
       entropyThreshold: 0.3,
       sizeChangeThreshold: 0.01,
       autoBlock: false,
+      ...settings,
     },
-  });
+  };
+}
+
+let storageQueue = Promise.resolve();
+
+function enqueueStorageUpdate(updateFn) {
+  storageQueue = storageQueue.then(updateFn, updateFn);
+  return storageQueue;
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set(defaultState());
 });
 
 async function handleAlert(message, sender) {
@@ -90,7 +102,7 @@ async function handleEvent(message, sender) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("[RoB BG] received message:", message);
   if (message.type === "ROB_EVENT") {
-    handleEvent(message, sender)
+    enqueueStorageUpdate(() => handleEvent(message, sender))
       .then(() => sendResponse({ ok: true }))
       .catch((err) => {
         console.error("[RoB BG] handleEvent error:", err);
@@ -100,7 +112,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ROB_ALERT") {
-    handleAlert(message, sender)
+    enqueueStorageUpdate(() => handleAlert(message, sender))
       .then(() => sendResponse({ ok: true }))
       .catch((err) => {
         console.error("[RoB BG] handleAlert error:", err);
@@ -108,5 +120,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true; // keep the message channel open for async sendResponse
   }
+
+  if (message.type === "CLEAR_ROB_DEFENDER") {
+    enqueueStorageUpdate(async () => {
+      const data = await chrome.storage.local.get(["settings"]);
+      await chrome.storage.local.set(defaultState(data.settings || {}));
+      await chrome.action.setBadgeText({ text: "" });
+    })
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+
   return false;
 });
