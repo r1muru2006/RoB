@@ -1,6 +1,7 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     activityLog: [],
+    apiCalls: [],
     alerts: [],
     totalApiCalls: 0,
     settings: {
@@ -11,6 +12,24 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "API_CALL") {
+    chrome.storage.local.get(["apiCalls", "totalApiCalls"], (data) => {
+      const apiCalls = data.apiCalls || [];
+      apiCalls.unshift({
+        timestamp: new Date().toISOString(),
+        url: sender.tab?.url || "unknown",
+        tabId: sender.tab?.id,
+        call: message.call,
+      });
+      if (apiCalls.length > 200) apiCalls.length = 200;
+
+      chrome.storage.local.set({
+        apiCalls,
+        totalApiCalls: (data.totalApiCalls || 0) + 1,
+      });
+    });
+  }
+
   if (message.type === "ACTIVITY_LOG") {
     chrome.storage.local.get(["activityLog", "totalApiCalls"], (data) => {
       const log = data.activityLog || [];
@@ -25,7 +44,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       chrome.storage.local.set({
         activityLog: log,
-        totalApiCalls: (data.totalApiCalls || 0) + message.calls.length,
       });
     });
   }

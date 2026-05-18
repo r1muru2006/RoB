@@ -18,6 +18,8 @@
   const callHistory = [];
   let lastAnalysisTime = 0;
   const ANALYSIS_INTERVAL = 2000;
+  const HOOKED = Symbol.for("rob.activityMonitorHooked");
+  let retryCount = 0;
 
   function sendToExtension(message) {
     window.postMessage(
@@ -34,6 +36,10 @@
     if (callHistory.length > WINDOW_SIZE * 2) {
       callHistory.splice(0, callHistory.length - WINDOW_SIZE * 2);
     }
+    sendToExtension({
+      type: "API_CALL",
+      call: fnName,
+    });
     throttledAnalysis();
   }
 
@@ -111,45 +117,62 @@
   }
 
   function hookFunction(obj, name, displayName) {
+    if (!obj) return false;
     const orig = obj[name];
-    if (!orig) return;
+    if (!orig || orig[HOOKED]) return Boolean(orig);
+
     obj[name] = function (...args) {
       record(displayName || name);
       return orig.apply(this, args);
     };
+    obj[name][HOOKED] = true;
+    return true;
   }
 
-  if (window.showDirectoryPicker) {
-    hookFunction(window, "showDirectoryPicker");
-  }
-  if (window.showOpenFilePicker) {
-    hookFunction(window, "showOpenFilePicker");
-  }
-  if (window.showSaveFilePicker) {
-    hookFunction(window, "showSaveFilePicker");
+  function installHooks() {
+    let installed = 0;
+
+    if (hookFunction(window, "showDirectoryPicker")) installed++;
+    if (hookFunction(window, "showOpenFilePicker")) installed++;
+    if (hookFunction(window, "showSaveFilePicker")) installed++;
+
+    if (typeof FileSystemFileHandle !== "undefined") {
+      if (hookFunction(FileSystemFileHandle.prototype, "getFile")) installed++;
+      if (hookFunction(FileSystemFileHandle.prototype, "createWritable")) installed++;
+    }
+
+    if (typeof FileSystemDirectoryHandle !== "undefined") {
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "getFileHandle")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "getDirectoryHandle")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "removeEntry")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "resolve")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "values")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "keys")) installed++;
+      if (hookFunction(FileSystemDirectoryHandle.prototype, "entries")) installed++;
+    }
+
+    if (typeof FileSystemWritableFileStream !== "undefined") {
+      if (hookFunction(FileSystemWritableFileStream.prototype, "write")) installed++;
+      if (hookFunction(FileSystemWritableFileStream.prototype, "seek")) installed++;
+      if (hookFunction(FileSystemWritableFileStream.prototype, "truncate")) installed++;
+      if (hookFunction(FileSystemWritableFileStream.prototype, "close")) installed++;
+    }
+
+    if (installed > 0) {
+      console.log(`[RoB Activity Monitor] hooks installed/verified: ${installed}`);
+    }
+
+    return installed;
   }
 
-  if (typeof FileSystemFileHandle !== "undefined") {
-    hookFunction(FileSystemFileHandle.prototype, "getFile");
-    hookFunction(FileSystemFileHandle.prototype, "createWritable");
-  }
-
-  if (typeof FileSystemDirectoryHandle !== "undefined") {
-    hookFunction(FileSystemDirectoryHandle.prototype, "getFileHandle");
-    hookFunction(FileSystemDirectoryHandle.prototype, "getDirectoryHandle");
-    hookFunction(FileSystemDirectoryHandle.prototype, "removeEntry");
-    hookFunction(FileSystemDirectoryHandle.prototype, "resolve");
-    hookFunction(FileSystemDirectoryHandle.prototype, "values");
-    hookFunction(FileSystemDirectoryHandle.prototype, "keys");
-    hookFunction(FileSystemDirectoryHandle.prototype, "entries");
-  }
-
-  if (typeof FileSystemWritableFileStream !== "undefined") {
-    hookFunction(FileSystemWritableFileStream.prototype, "write");
-    hookFunction(FileSystemWritableFileStream.prototype, "seek");
-    hookFunction(FileSystemWritableFileStream.prototype, "truncate");
-    hookFunction(FileSystemWritableFileStream.prototype, "close");
-  }
+  installHooks();
+  const retryTimer = window.setInterval(() => {
+    retryCount++;
+    const installed = installHooks();
+    if (installed >= 10 || retryCount >= 80) {
+      window.clearInterval(retryTimer);
+    }
+  }, 250);
 
   console.log("[RoB Activity Monitor] FSA API monitoring active");
 })();

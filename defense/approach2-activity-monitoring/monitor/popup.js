@@ -1,13 +1,17 @@
-chrome.storage.local.get(
-  ["alerts", "totalApiCalls", "activityLog"],
+function refresh() {
+  chrome.storage.local.get(
+  ["alerts", "apiCalls", "totalApiCalls", "activityLog"],
   (data) => {
     const alerts = data.alerts || [];
+    const apiCalls = data.apiCalls || [];
     const total = data.totalApiCalls || 0;
     const log = data.activityLog || [];
 
     document.getElementById("totalCalls").textContent = total;
     document.getElementById("alertCount").textContent = alerts.length;
     document.getElementById("tabCount").textContent = log.length;
+
+    renderApiCalls(apiCalls);
 
     if (alerts.length === 0) return;
 
@@ -42,3 +46,65 @@ chrome.storage.local.get(
     }
   }
 );
+}
+
+function renderApiCalls(apiCalls) {
+  const container = document.getElementById("callList");
+  container.textContent = "";
+
+  if (apiCalls.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "no-alerts";
+    empty.textContent = "No API calls recorded yet";
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const call of apiCalls.slice(0, 80)) {
+    const item = document.createElement("div");
+    item.className = "call-item";
+
+    const name = document.createElement("div");
+    name.className = "call-name";
+    name.textContent = call.call || "unknown";
+
+    const meta = document.createElement("div");
+    meta.className = "call-meta";
+    const time = new Date(call.timestamp).toLocaleTimeString();
+    meta.title = call.url || "unknown";
+    meta.textContent = `${time} | ${shortUrl(call.url)}`;
+
+    item.append(name, meta);
+    container.appendChild(item);
+  }
+}
+
+function shortUrl(url) {
+  if (!url || url === "unknown") return "unknown";
+  try {
+    const parsed = new URL(url);
+    return parsed.host || url;
+  } catch (e) {
+    return url;
+  }
+}
+
+function setupTabs() {
+  const buttons = document.querySelectorAll(".tab-button");
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      for (const other of buttons) {
+        other.classList.toggle("active", other === button);
+        document.getElementById(other.dataset.panel).hidden = other !== button;
+      }
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  setupTabs();
+  refresh();
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local") refresh();
+  });
+});

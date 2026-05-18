@@ -55,7 +55,7 @@
     .alerts {
       padding: 12px;
     }
-    .alerts h2 {
+    .panel h2 {
       font-size: 14px;
       margin-bottom: 8px;
       color: #4a5568;
@@ -83,6 +83,61 @@
       color: #a0aec0;
       font-size: 12px;
       padding: 16px;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      padding: 12px 12px 0;
+    }
+    .tab-button {
+      flex: 1;
+      border: 1px solid #cbd5e0;
+      background: white;
+      color: #4a5568;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px;
+    }
+    .tab-button.active {
+      background: #2f855a;
+      border-color: #2f855a;
+      color: white;
+    }
+    .panel {
+      padding: 12px;
+    }
+    .panel[hidden] {
+      display: none;
+    }
+    .call-list {
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .call-item {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 6px;
+      align-items: start;
+      background: white;
+      border-left: 4px solid #2f855a;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      font-size: 11px;
+    }
+    .call-name {
+      color: #22543d;
+      font-weight: 700;
+      word-break: break-word;
+    }
+    .call-meta {
+      color: #718096;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .footer {
       text-align: center;
@@ -118,10 +173,22 @@
     Monitoring active - No threats detected
   </div>
 
-  <div class="alerts">
+  <div class="tabs" role="tablist">
+    <button class="tab-button active" id="alertsTab" data-panel="alertsPanel" type="button">Alerts</button>
+    <button class="tab-button" id="callsTab" data-panel="callsPanel" type="button">API Calls</button>
+  </div>
+
+  <div class="panel" id="alertsPanel" role="tabpanel">
     <h2>Detection Alerts</h2>
     <div id="alertList">
       <div class="no-alerts">No ransomware patterns detected</div>
+    </div>
+  </div>
+
+  <div class="panel" id="callsPanel" role="tabpanel" hidden>
+    <h2>Recent API Calls</h2>
+    <div class="call-list" id="callList">
+      <div class="no-alerts">No API calls recorded yet</div>
     </div>
   </div>
 

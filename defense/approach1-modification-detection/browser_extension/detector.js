@@ -121,20 +121,33 @@ const RoBDetector = (() => {
 
     const origSize = originalData.byteLength;
     const modSize = modifiedData.byteLength;
+    const absoluteSizeChange = Math.abs(modSize - origSize);
     const sizeChange = origSize > 0 ? Math.abs(modSize - origSize) / origSize : 0;
 
-    return { origEntropy, modEntropy, entropyChange, origSize, modSize, sizeChange };
+    return {
+      origEntropy,
+      modEntropy,
+      entropyChange,
+      origSize,
+      modSize,
+      absoluteSizeChange,
+      sizeChange,
+    };
   }
 
   function isMalicious(analysis, thresholds = {}, filename = "") {
     const defaultEntropy = thresholds.entropyThreshold ?? 0.3;
     const defaultSize = thresholds.sizeChangeThreshold ?? 0.01;
+    const fixedOverheadBytes = thresholds.fixedOverheadBytes ?? 512;
     const entropyThreshold = entropyThresholdFor(filename, defaultEntropy);
     const sizeThreshold = sizeThresholdFor(filename, defaultSize);
+    const sizeLooksLikeEncryption =
+      analysis.sizeChange < sizeThreshold ||
+      analysis.absoluteSizeChange <= fixedOverheadBytes;
 
     return (
       analysis.entropyChange > entropyThreshold &&
-      analysis.sizeChange < sizeThreshold
+      sizeLooksLikeEncryption
     );
   }
 

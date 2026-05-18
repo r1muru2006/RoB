@@ -13,6 +13,8 @@
   const fileCache = new Map();
   let monitoredDir = null;
   let currentSettings = { entropyThreshold: 0.3, sizeChangeThreshold: 0.01 };
+  const HOOKED = Symbol.for("rob.modificationDetectorHooked");
+  let retryCount = 0;
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
@@ -30,24 +32,35 @@
     window.postMessage({ source: "rob-defender", ...payload }, "*");
   }
 
-  const origShowDirectoryPicker = window.showDirectoryPicker;
-  if (origShowDirectoryPicker) {
-    window.showDirectoryPicker = async function (...args) {
+  function reportEvent(payload) {
+    window.postMessage({ source: "rob-defender", type: "ROB_EVENT", ...payload }, "*");
+  }
+
+  function hookMethod(obj, name, wrapperFactory) {
+    if (!obj) return false;
+    const orig = obj[name];
+    if (!orig || orig[HOOKED]) return Boolean(orig);
+    obj[name] = wrapperFactory(orig);
+    obj[name][HOOKED] = true;
+    return true;
+  }
+
+  function installHooks() {
+    let installed = 0;
+
+    if (hookMethod(window, "showDirectoryPicker", (origShowDirectoryPicker) => async function (...args) {
       const handle = await origShowDirectoryPicker.apply(this, args);
       monitoredDir = handle.name;
       console.log("[RoB Defender] Directory picker opened:", handle.name);
+      reportEvent({ event: "directory_selected", directoryName: handle.name });
       return handle;
-    };
-  }
+    })) installed++;
 
-  if (typeof FileSystemFileHandle === "undefined") {
-    console.log("[RoB Defender] File System Access file handles are unavailable on this page");
-    return;
-  }
+    if (typeof FileSystemFileHandle === "undefined") {
+      return installed;
+    }
 
-  const origGetFile = FileSystemFileHandle.prototype.getFile;
-  if (origGetFile) {
-    FileSystemFileHandle.prototype.getFile = async function (...args) {
+    if (hookMethod(FileSystemFileHandle.prototype, "getFile", (origGetFile) => async function (...args) {
       const file = await origGetFile.apply(this, args);
 
       try {
@@ -55,18 +68,19 @@
         const buffer = await clone.arrayBuffer();
         fileCache.set(this.name, buffer);
         console.log(`[RoB Defender] cached original "${this.name}" (${buffer.byteLength} bytes)`);
+        reportEvent({
+          event: "file_cached",
+          filename: this.name,
+          size: buffer.byteLength,
+        });
       } catch (e) {
         console.warn("[RoB Defender] failed to cache original:", e);
       }
 
       return file;
-    };
-  }
+    })) installed++;
 
-  const origCreateWritable = FileSystemFileHandle.prototype.createWritable;
-  if (!origCreateWritable) return;
-
-  FileSystemFileHandle.prototype.createWritable = async function (...args) {
+    if (hookMethod(FileSystemFileHandle.prototype, "createWritable", (origCreateWritable) => async function (...args) {
     const writable = await origCreateWritable.apply(this, args);
     const fileName = this.name;
     const fileHandle = this;
@@ -79,6 +93,7 @@
 
     writable.write = async function (data) {
       console.log(`[RoB Defender] write() intercepted on "${fileName}"`);
+      reportEvent({ event: "write_intercepted", filename: fileName });
 
       async function toBuffer(d) {
         if (d == null) return null;
@@ -112,8 +127,14 @@
 
       if (!writeBuffer) {
         console.warn(`[RoB Defender] write data unrecognized type for "${fileName}"`);
+        reportEvent({ event: "write_unrecognized", filename: fileName });
       } else if (!fileCache.has(fileName)) {
         console.warn(`[RoB Defender] no cached original for "${fileName}" — getFile() was never called, cannot detect`);
+        reportEvent({
+          event: "write_no_cache",
+          filename: fileName,
+          size: writeBuffer.byteLength,
+        });
       }
 
       if (writeBuffer && fileCache.has(fileName)) {
@@ -126,8 +147,17 @@
           `[RoB Defender] analyzed "${fileName}": ` +
           `entropy_change=${analysis.entropyChange.toFixed(3)} (>${entThr}?) ` +
           `size_change=${(analysis.sizeChange * 100).toFixed(3)}% (<${(sizeThr * 100).toFixed(2)}%?) ` +
+          `absolute_size_change=${analysis.absoluteSizeChange}B ` +
           `→ malicious=${malicious}`
         );
+        reportEvent({
+          event: "write_analyzed",
+          filename: fileName,
+          entropyChange: analysis.entropyChange,
+          sizeChange: analysis.sizeChange,
+          absoluteSizeChange: analysis.absoluteSizeChange,
+          malicious,
+        });
 
         if (malicious) {
           console.warn(
@@ -185,7 +215,23 @@
     };
 
     return writable;
-  };
+    })) installed++;
+
+    if (installed > 0) {
+      console.log(`[RoB Defender] hooks installed/verified: ${installed}`);
+    }
+
+    return installed;
+  }
+
+  installHooks();
+  const retryTimer = window.setInterval(() => {
+    retryCount++;
+    const installed = installHooks();
+    if (installed >= 3 || retryCount >= 80) {
+      window.clearInterval(retryTimer);
+    }
+  }, 250);
 
   console.log("[RoB Defender] FSA API hooks installed - monitoring for malicious modifications");
 })();

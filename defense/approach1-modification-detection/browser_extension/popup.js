@@ -1,7 +1,17 @@
 function refresh() {
   chrome.storage.local.get(
-    ["alerts", "blockedCount", "allowedCount", "settings"],
+    [
+      "alerts",
+      "recentEvents",
+      "blockedCount",
+      "allowedCount",
+      "observedCount",
+      "analyzedCount",
+      "settings",
+    ],
     (data) => {
+      document.getElementById("observedCount").textContent = data.observedCount || 0;
+      document.getElementById("analyzedCount").textContent = data.analyzedCount || 0;
       document.getElementById("blockedCount").textContent = data.blockedCount || 0;
       document.getElementById("allowedCount").textContent = data.allowedCount || 0;
 
@@ -16,6 +26,7 @@ function refresh() {
       }
 
       renderAlerts(data.alerts || []);
+      renderEvents(data.recentEvents || []);
     }
   );
 }
@@ -82,4 +93,61 @@ function renderAlerts(alerts) {
     item.append(filename, details, time);
     container.appendChild(item);
   }
+}
+
+function renderEvents(events) {
+  const container = document.getElementById("eventList");
+  container.textContent = "";
+
+  if (events.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "no-alerts";
+    empty.textContent = "No activity observed yet";
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const event of events.slice(0, 20)) {
+    const item = document.createElement("div");
+    item.className = event.malicious
+      ? "alert-item event-item event-malicious"
+      : "alert-item event-item";
+
+    const title = document.createElement("div");
+    title.className = "alert-filename";
+    title.textContent = `${eventLabel(event.event)} ${event.filename || event.directoryName || ""}`.trim();
+
+    const details = document.createElement("div");
+    details.className = "alert-details";
+    if (event.event === "write_analyzed") {
+      const entropyChange = Number(event.entropyChange) || 0;
+      const sizeChange = Number(event.sizeChange) || 0;
+      details.textContent =
+        `Entropy +${entropyChange.toFixed(2)} | Size ${(sizeChange * 100).toFixed(2)}% | ` +
+        `${event.malicious ? "suspicious" : "not suspicious"}`;
+    } else if (event.size) {
+      details.textContent = `${event.size} bytes`;
+    } else {
+      details.textContent = event.url || "observed";
+    }
+
+    const time = document.createElement("div");
+    time.className = "alert-time";
+    time.textContent = new Date(event.timestamp).toLocaleTimeString();
+
+    item.append(title, details, time);
+    container.appendChild(item);
+  }
+}
+
+function eventLabel(event) {
+  const labels = {
+    directory_selected: "Directory",
+    file_cached: "Cached",
+    write_intercepted: "Write",
+    write_unrecognized: "Unknown write",
+    write_no_cache: "Write without cache",
+    write_analyzed: "Analyzed",
+  };
+  return labels[event] || event || "Event";
 }

@@ -4,7 +4,7 @@
  * forwarded to the service worker.
  */
 (() => {
-  const ALLOWED_TYPES = new Set(["ACTIVITY_LOG", "RANSOMWARE_ALERT"]);
+  const ALLOWED_TYPES = new Set(["API_CALL", "ACTIVITY_LOG", "RANSOMWARE_ALERT"]);
 
   function isPlainObject(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -17,6 +17,13 @@
 
     if (!ALLOWED_TYPES.has(data.type)) {
       return null;
+    }
+
+    if (data.type === "API_CALL") {
+      return {
+        type: data.type,
+        call: String(data.call || "unknown"),
+      };
     }
 
     if (data.type === "ACTIVITY_LOG") {
