@@ -89,11 +89,18 @@
     };
   }
 
+  if (typeof FileSystemFileHandle === 'undefined') {
+    console.log('[RoB Enhanced Permissions] File System Access file handles are unavailable on this page');
+    return;
+  }
+
   // For createWritable on a directory-derived handle, the native write
   // permission dialog is itself shown by Chrome and does not require a fresh
   // gesture in the same way as picker invocation. We can keep an async warning
   // here without breaking the activation chain.
   const origCreateWritable = FileSystemFileHandle.prototype.createWritable;
+  if (!origCreateWritable) return;
+
   const shownWriteWarnings = new Set();
 
   FileSystemFileHandle.prototype.createWritable = async function (options) {

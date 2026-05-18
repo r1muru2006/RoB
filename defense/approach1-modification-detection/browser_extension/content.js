@@ -40,23 +40,32 @@
     };
   }
 
+  if (typeof FileSystemFileHandle === "undefined") {
+    console.log("[RoB Defender] File System Access file handles are unavailable on this page");
+    return;
+  }
+
   const origGetFile = FileSystemFileHandle.prototype.getFile;
-  FileSystemFileHandle.prototype.getFile = async function (...args) {
-    const file = await origGetFile.apply(this, args);
+  if (origGetFile) {
+    FileSystemFileHandle.prototype.getFile = async function (...args) {
+      const file = await origGetFile.apply(this, args);
 
-    try {
-      const clone = file.slice();
-      const buffer = await clone.arrayBuffer();
-      fileCache.set(this.name, buffer);
-      console.log(`[RoB Defender] cached original "${this.name}" (${buffer.byteLength} bytes)`);
-    } catch (e) {
-      console.warn("[RoB Defender] failed to cache original:", e);
-    }
+      try {
+        const clone = file.slice();
+        const buffer = await clone.arrayBuffer();
+        fileCache.set(this.name, buffer);
+        console.log(`[RoB Defender] cached original "${this.name}" (${buffer.byteLength} bytes)`);
+      } catch (e) {
+        console.warn("[RoB Defender] failed to cache original:", e);
+      }
 
-    return file;
-  };
+      return file;
+    };
+  }
 
   const origCreateWritable = FileSystemFileHandle.prototype.createWritable;
+  if (!origCreateWritable) return;
+
   FileSystemFileHandle.prototype.createWritable = async function (...args) {
     const writable = await origCreateWritable.apply(this, args);
     const fileName = this.name;
