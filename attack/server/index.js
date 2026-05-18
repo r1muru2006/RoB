@@ -13,6 +13,18 @@ const LOCAL_DEMO_ORIGINS = new Set([
     'null'
 ]);
 
+// Security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    );
+    next();
+});
+
 // Middleware
 app.use(cors({
     origin(origin, callback) {
@@ -22,8 +34,8 @@ app.use(cors({
         return callback(new Error('CORS origin is not allowed for this local demo'));
     }
 }));
-app.use(express.json()); // Parse JSON bodies
-app.use(express.static('public')); // Serve static assets for ransom page
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static('public'));
 
 // Mount API routes
 app.use('/api', apiRoutes);

