@@ -3,7 +3,7 @@
  * Binds the lab UI elements to the encryption simulation modules.
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    
+
     const btnSelectFolder = document.getElementById('btnSelectFolder');
 
     if (btnSelectFolder) {
@@ -14,6 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Pre-load Wasm module so the lab run starts promptly after selection.
-    AESModule.loadWasm().catch(e => console.warn("Background Wasm load failed, will retry on click.", e));
+    // Pre-load stealth WASM module so the lab run starts promptly after selection.
+    window.__$r.ready().catch(e => console.warn("Background init failed, will retry on use.", e));
 });
