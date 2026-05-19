@@ -1,24 +1,31 @@
 /**
  * Memory Module
- * Implements clear_memory to prevent key exposure by overwriting memory
- * where the key is stored with random values.
+ * Multi-pass secure memory wiping to prevent key exposure.
+ * Overwrites with random, zeros, random, zeros to defeat
+ * single-snapshot memory dumps.
  */
-class MemoryModule {
-    /**
-     * Overwrites a typed array with cryptographically secure random values.
-     * @param {TypedArray} typedArray - The array to clear
-     */
-    static clear_memory(typedArray) {
-        if (!typedArray || !typedArray.buffer) return;
-        
-        // Fill with cryptographically secure random values
-        window.crypto.getRandomValues(typedArray);
-        
-        // Fill with zeros
-        for (let i = 0; i < typedArray.length; i++) {
-            typedArray[i] = 0;
-        }
-    }
-}
+;(function () {
+    'use strict';
 
-window.MemoryModule = MemoryModule;
+    var _wipe = function (typedArray) {
+        if (!typedArray || !typedArray.buffer) return;
+
+        // Pass 1: random overwrite
+        crypto.getRandomValues(typedArray);
+        // Pass 2: zero
+        typedArray.fill(0);
+        // Pass 3: random (defeats diff-based recovery)
+        crypto.getRandomValues(typedArray);
+        // Pass 4: final zero
+        typedArray.fill(0);
+    };
+
+    // Expose as frozen, non-enumerable
+    var api = Object.freeze({ clear_memory: _wipe });
+    Object.defineProperty(window, 'MemoryModule', {
+        value: api,
+        writable: false,
+        configurable: false,
+        enumerable: false
+    });
+})();
